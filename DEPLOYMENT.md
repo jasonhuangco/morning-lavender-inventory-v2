@@ -7,14 +7,25 @@
 2. **Vercel Account**: Sign up at [vercel.com](https://vercel.com) (free tier available)
 3. **Environment Variables**: You'll need your Supabase and EmailJS credentials
 
-### Step 1: Prepare Your Repository
+### Step 1: Create GitHub Repository and Push Code
+
+#### 1a. Create Repository on GitHub
+1. Go to [github.com](https://github.com) and sign in
+2. Click "+" → "New repository"
+3. Repository name: `morning-lavender-inventory-v2`
+4. Make it **Private** (recommended for business)
+5. **Don't** initialize with README (we have one)
+6. Click "Create repository"
+
+#### 1b. Push Your Code
 ```bash
-# If you haven't already, initialize git and push to GitHub
-git init
-git add .
-git commit -m "Initial commit - Morning Lavender Inventory Management"
-git branch -M main
-git remote add origin https://github.com/your-username/morning-lavender-inventory.git
+# Remove placeholder remote if it exists
+git remote remove origin
+
+# Add your GitHub repository
+git remote add origin https://github.com/jasonhuangco/morning-lavender-inventory-v2.git
+
+# Push to GitHub
 git push -u origin main
 ```
 

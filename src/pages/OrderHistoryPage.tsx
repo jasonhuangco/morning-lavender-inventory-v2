@@ -108,8 +108,8 @@ export default function OrderHistoryPage() {
         items: (order.order_items || []).map((item: any) => ({
           product_id: item.product_id,
           product_name: item.products?.name || 'Unknown Product',
-          quantity_ordered: item.quantity || 0, // This is the actual quantity ordered
-          current_quantity: 0, // We don't store current quantity in order_items  
+          quantity_ordered: item.quantity || 0, // This is the actual counted quantity
+          current_quantity: item.quantity || 0, // Same as quantity_ordered - what was counted
           minimum_threshold: item.products?.minimum_threshold || 0,
           supplier_name: item.products?.suppliers?.name || 'Unknown Supplier',
           category_names: item.products?.categories?.name ? [item.products.categories.name] : []

@@ -53,8 +53,8 @@ export interface Product {
 export interface OrderItem {
   product_id: string;
   product_name: string;
-  quantity_ordered: number;
-  current_quantity: number;
+  quantity_ordered: number; // Actually the counted quantity (what was counted during inventory)
+  current_quantity: number; // Same as quantity_ordered - the counted quantity  
   minimum_threshold: number;
   supplier_name: string;
   category_names: string[];

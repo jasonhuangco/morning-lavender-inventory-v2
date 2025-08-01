@@ -4,6 +4,7 @@ import LoginPage from './pages/LoginPage';
 import InventoryPage from './pages/InventoryPage';
 import OrderHistoryPage from './pages/OrderHistoryPage';
 import SettingsPage from './pages/SettingsPage';
+import EmailTestPage from './pages/EmailTestPage';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { InventoryProvider } from './contexts/InventoryContext';
 
@@ -54,6 +55,7 @@ function App() {
                     <Route path="/inventory" element={<InventoryPage />} />
                     <Route path="/orders" element={<OrderHistoryPage />} />
                     <Route path="/settings" element={<SettingsPage />} />
+                    <Route path="/email-test" element={<EmailTestPage />} />
                   </Routes>
                 </Layout>
               </PrivateRoute>

@@ -222,11 +222,11 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
         throw orderError;
       }
 
-      // Create order items
+      // Create order items - store the actual counted quantity
       const orderItems = itemsToOrder.map(item => ({
         order_id: orderData.id,
         product_id: item.product_id,
-        quantity: item.minimum_threshold - item.current_quantity // quantity needed
+        quantity: item.current_quantity // actual counted quantity
       }));
 
       const { error: itemsError } = await supabase
