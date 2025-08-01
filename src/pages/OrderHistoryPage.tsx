@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Clock, MapPin, User, Package, FileText } from 'lucide-react';
+import { Clock, MapPin, User, Package, FileText, Trash2 } from 'lucide-react';
 import { Order } from '../types';
 import { createClient } from '@supabase/supabase-js';
 import { config } from '../config/env';
@@ -21,6 +21,43 @@ export default function OrderHistoryPage() {
   const handleCloseModal = () => {
     setSelectedOrder(null);
     setSelectedSupplier('all'); // Reset filter when closing modal
+  };
+
+  const handleDeleteOrder = async (orderId: string, orderNumber: string) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to delete order ${orderNumber}? This action cannot be undone.`
+    );
+    
+    if (!confirmed) return;
+
+    try {
+      const supabase = createClient(config.supabase.url, config.supabase.anonKey);
+      
+      // Delete the order (order_items will be automatically deleted due to CASCADE)
+      const { error } = await supabase
+        .from('orders')
+        .delete()
+        .eq('id', orderId);
+
+      if (error) {
+        console.error('Error deleting order:', error);
+        alert('Failed to delete order. Please try again.');
+        return;
+      }
+
+      // Remove from local state
+      setOrders(prev => prev.filter(order => order.id !== orderId));
+      
+      // Close modal if the deleted order was selected
+      if (selectedOrder?.id === orderId) {
+        setSelectedOrder(null);
+      }
+
+      alert(`Order ${orderNumber} has been deleted successfully.`);
+    } catch (error) {
+      console.error('Error deleting order:', error);
+      alert('Failed to delete order. Please try again.');
+    }
   };
 
   // Get unique locations, months, and years from orders
@@ -297,7 +334,19 @@ export default function OrderHistoryPage() {
                 </div>
               </div>
 
-              <FileText className="h-5 w-5 text-gray-400 ml-4 flex-shrink-0" />
+              <div className="flex items-center space-x-2 ml-4">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent opening the modal
+                    handleDeleteOrder(order.id, `#${order.id.slice(-8)}`);
+                  }}
+                  className="text-gray-400 hover:text-red-600 transition-colors p-1"
+                  title="Delete order"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+                <FileText className="h-5 w-5 text-gray-400 flex-shrink-0" />
+              </div>
             </div>
           </div>
         ))}

@@ -26,6 +26,7 @@ interface InventoryContextType {
   updateProduct: (id: string, product: Partial<Product>) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
   reorderProducts: (sourceIndex: number, destinationIndex: number) => Promise<void>;
+  bulkSortProducts: (sortedProducts: Product[]) => Promise<void>;
   
   addLocation: (location: Omit<Location, 'id' | 'created_at' | 'updated_at' | 'sort_order'>) => Promise<void>;
   updateLocation: (id: string, location: Partial<Location>) => Promise<void>;
@@ -205,13 +206,17 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
       }
 
       // Create main order record
+      const orderNotes = inventoryCount.notes 
+        ? `Order submitted by ${inventoryCount.user_name}\n\nNote: ${inventoryCount.notes}`
+        : `Order submitted by ${inventoryCount.user_name}`;
+
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .insert([{
           order_number: orderNumber,
           location_id: inventoryCount.location_id,
           status: 'pending',
-          notes: `Order submitted by ${inventoryCount.user_name}`,
+          notes: orderNotes,
           order_date: new Date().toISOString()
         }])
         .select()
@@ -660,6 +665,36 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
     await reorderItems(products, setProducts, 'products', sourceIndex, destinationIndex);
   };
 
+  const bulkSortProducts = async (sortedProducts: Product[]) => {
+    try {
+      const supabase = createClient(config.supabase.url, config.supabase.anonKey);
+      
+      // Create updates for each product with new sort_order
+      const updates = sortedProducts.map((product, index) => ({
+        id: product.id,
+        sort_order: index
+      }));
+
+      // Update all products in a single transaction
+      for (const update of updates) {
+        const { error } = await supabase
+          .from('products')
+          .update({ sort_order: update.sort_order })
+          .eq('id', update.id);
+        
+        if (error) {
+          throw error;
+        }
+      }
+
+      // Update local state with new order
+      setProducts(sortedProducts);
+    } catch (error) {
+      console.error('Error bulk sorting products:', error);
+      throw error;
+    }
+  };
+
   const reorderLocations = async (sourceIndex: number, destinationIndex: number) => {
     await reorderItems(locations, setLocations, 'locations', sourceIndex, destinationIndex);
   };
@@ -692,6 +727,7 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
     updateProduct,
     deleteProduct,
     reorderProducts,
+    bulkSortProducts,
     
     addLocation,
     updateLocation,

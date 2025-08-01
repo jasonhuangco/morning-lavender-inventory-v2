@@ -1,12 +1,15 @@
 import { useState } from 'react';
+import { ArrowUpDown } from 'lucide-react';
 import { useInventory } from '../../contexts/InventoryContext';
 import { Product } from '../../types';
 import { SortableList } from '../SortableList';
 
 export default function ProductManagement() {
-  const { products, categories, suppliers, addProduct, updateProduct, deleteProduct, reorderProducts } = useInventory();
+  const { products, categories, suppliers, addProduct, updateProduct, deleteProduct, reorderProducts, bulkSortProducts } = useInventory();
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [reorderMode, setReorderMode] = useState(false);
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
+  const [selectedSupplierFilter, setSelectedSupplierFilter] = useState<string>('all');
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -84,6 +87,90 @@ export default function ProductManagement() {
     }
   };
 
+  const handleDuplicate = (product: Product) => {
+    setFormData({
+      name: `${product.name} (Copy)`,
+      description: product.description || '',
+      unit: product.unit,
+      cost: product.cost || 0,
+      minimum_threshold: product.minimum_threshold,
+      checkbox_only: product.checkbox_only,
+      category_id: product.category_id || '',
+      supplier_id: product.supplier_id || ''
+    });
+    setEditingProduct(null); // Ensure we're in "add" mode
+    
+    // Scroll to form
+    const formElement = document.querySelector('.bg-gray-50');
+    if (formElement) {
+      formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  // Custom reorder function for filtered products
+  const handleFilteredReorder = async (sourceIndex: number, destinationIndex: number) => {
+    // If filters are active, we need to map the filtered indices back to the full products array
+    if (selectedCategoryFilter !== 'all' || selectedSupplierFilter !== 'all') {
+      const sourceProduct = filteredProducts[sourceIndex];
+      const destinationProduct = filteredProducts[destinationIndex];
+      
+      const fullSourceIndex = products.findIndex(p => p.id === sourceProduct.id);
+      const fullDestinationIndex = products.findIndex(p => p.id === destinationProduct.id);
+      
+      if (fullSourceIndex !== -1 && fullDestinationIndex !== -1) {
+        await reorderProducts(fullSourceIndex, fullDestinationIndex);
+      }
+    } else {
+      // No filters active, use normal reorder
+      await reorderProducts(sourceIndex, destinationIndex);
+    }
+  };
+
+  const handleAutoSortByName = async () => {
+    try {
+      // Create a copy of products sorted by name
+      const sortedProducts = [...products].sort((a, b) => a.name.localeCompare(b.name));
+      
+      // Apply the new sort order using bulk sort
+      await bulkSortProducts(sortedProducts);
+    } catch (error) {
+      console.error('Error sorting products by name:', error);
+      alert('Failed to sort products. Please try again.');
+    }
+  };
+
+  const handleAutoSortBySupplier = async () => {
+    try {
+      // Create a copy of products sorted by supplier name, then by product name
+      const sortedProducts = [...products].sort((a, b) => {
+        const supplierA = suppliers.find(s => s.id === a.supplier_id)?.name || '';
+        const supplierB = suppliers.find(s => s.id === b.supplier_id)?.name || '';
+        
+        // First sort by supplier name
+        const supplierCompare = supplierA.localeCompare(supplierB);
+        if (supplierCompare !== 0) {
+          return supplierCompare;
+        }
+        
+        // If suppliers are the same, sort by product name
+        return a.name.localeCompare(b.name);
+      });
+      
+      // Apply the new sort order using bulk sort
+      await bulkSortProducts(sortedProducts);
+    } catch (error) {
+      console.error('Error sorting products by supplier:', error);
+      alert('Failed to sort products. Please try again.');
+    }
+  };
+
+  // Filter products based on selected category and supplier
+  const filteredProducts = products.filter(product => {
+    const categoryMatch = selectedCategoryFilter === 'all' || product.category_id === selectedCategoryFilter;
+    const supplierMatch = selectedSupplierFilter === 'all' || product.supplier_id === selectedSupplierFilter;
+    return categoryMatch && supplierMatch;
+  });
+
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-semibold text-gray-900">Product Management</h2>
@@ -109,43 +196,46 @@ export default function ProductManagement() {
               />
             </div>
             
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Unit
-              </label>
-              <input
-                type="text"
-                value={formData.unit}
-                onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                placeholder="e.g. lbs, bottles, cases"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Cost ($)
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={formData.cost}
-                onChange={(e) => setFormData({ ...formData, cost: parseFloat(e.target.value) || 0 })}
-                className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Minimum Threshold
-              </label>
-              <input
-                type="number"
-                value={formData.minimum_threshold}
-                onChange={(e) => setFormData({ ...formData, minimum_threshold: parseInt(e.target.value) || 0 })}
-                className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                min="0"
-              />
+            {/* Minimum Threshold, Cost, and Unit on same line */}
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Minimum Threshold
+                </label>
+                <input
+                  type="number"
+                  value={formData.minimum_threshold}
+                  onChange={(e) => setFormData({ ...formData, minimum_threshold: parseInt(e.target.value) || 0 })}
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  min="0"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Cost ($)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.cost}
+                  onChange={(e) => setFormData({ ...formData, cost: parseFloat(e.target.value) || 0 })}
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Unit
+                </label>
+                <input
+                  type="text"
+                  value={formData.unit}
+                  onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  placeholder="e.g. lbs, bottles, cases"
+                />
+              </div>
             </div>
             
             <div>
@@ -236,23 +326,122 @@ export default function ProductManagement() {
       {/* Products List */}
       <div className="bg-white rounded-lg shadow">
         <div className="px-6 py-4 border-b border-gray-200">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-medium text-gray-900">Current Products</h3>
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="reorder-mode"
-                checked={reorderMode}
-                onChange={(e) => setReorderMode(e.target.checked)}
-                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-              />
-              <label htmlFor="reorder-mode" className="text-sm text-gray-600">
-                Enable Reordering
-              </label>
+            <div className="flex items-center space-x-4">
+              {/* Auto Sort Options */}
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-600">Auto Sort:</span>
+                <button
+                  onClick={handleAutoSortByName}
+                  className="text-sm text-primary-600 hover:text-primary-700 px-2 py-1 rounded border border-primary-200 hover:border-primary-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={reorderMode || selectedCategoryFilter !== 'all' || selectedSupplierFilter !== 'all'}
+                  title={
+                    selectedCategoryFilter !== 'all' || selectedSupplierFilter !== 'all' 
+                      ? "Clear filters to use auto-sort"
+                      : "Sort alphabetically by product name"
+                  }
+                >
+                  <ArrowUpDown className="h-3 w-3 inline mr-1" />
+                  Name
+                </button>
+                <button
+                  onClick={handleAutoSortBySupplier}
+                  className="text-sm text-primary-600 hover:text-primary-700 px-2 py-1 rounded border border-primary-200 hover:border-primary-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={reorderMode || selectedCategoryFilter !== 'all' || selectedSupplierFilter !== 'all'}
+                  title={
+                    selectedCategoryFilter !== 'all' || selectedSupplierFilter !== 'all'
+                      ? "Clear filters to use auto-sort"
+                      : "Sort by supplier name, then product name"
+                  }
+                >
+                  <ArrowUpDown className="h-3 w-3 inline mr-1" />
+                  Supplier
+                </button>
+              </div>
+              
+              {/* Manual Reorder Toggle */}
+              <div className="flex items-center space-x-2 pl-4 border-l border-gray-200">
+                <input
+                  type="checkbox"
+                  id="reorder-mode"
+                  checked={reorderMode}
+                  onChange={(e) => setReorderMode(e.target.checked)}
+                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                />
+                <label htmlFor="reorder-mode" className="text-sm text-gray-600">
+                  Manual Reorder
+                </label>
+              </div>
             </div>
           </div>
+          
+          {/* Filters */}
+          <div className="flex items-center space-x-4 mb-4">
+            <span className="text-sm text-gray-600 font-medium">Filters:</span>
+            
+            {/* Category Filter */}
+            <div className="flex items-center space-x-2">
+              <label className="text-sm text-gray-600">Category:</label>
+              <select
+                value={selectedCategoryFilter}
+                onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+                className="text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="all">All Categories</option>
+                {categories.map(category => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            {/* Supplier Filter */}
+            <div className="flex items-center space-x-2">
+              <label className="text-sm text-gray-600">Supplier:</label>
+              <select
+                value={selectedSupplierFilter}
+                onChange={(e) => setSelectedSupplierFilter(e.target.value)}
+                className="text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="all">All Suppliers</option>
+                {suppliers.map(supplier => (
+                  <option key={supplier.id} value={supplier.id}>
+                    {supplier.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            {/* Clear Filters */}
+            {(selectedCategoryFilter !== 'all' || selectedSupplierFilter !== 'all') && (
+              <button
+                onClick={() => {
+                  setSelectedCategoryFilter('all');
+                  setSelectedSupplierFilter('all');
+                }}
+                className="text-sm text-gray-500 hover:text-gray-700 px-2 py-1 rounded border border-gray-200 hover:border-gray-300"
+              >
+                Clear Filters
+              </button>
+            )}
+            
+            {/* Results Count */}
+            <span className="text-sm text-gray-500">
+              Showing {filteredProducts.length} of {products.length} products
+            </span>
+          </div>
+          
           {reorderMode && (
-            <p className="text-sm text-gray-500 mt-1">Drag and drop to reorder products</p>
+            <div className="text-sm text-gray-500">
+              <p>Drag and drop to reorder products manually</p>
+              {(selectedCategoryFilter !== 'all' || selectedSupplierFilter !== 'all') && (
+                <p className="text-yellow-600 mt-1">
+                  ⚠️ Filters are active - reordering will affect the global product order
+                </p>
+              )}
+            </div>
           )}
         </div>
         
@@ -263,8 +452,8 @@ export default function ProductManagement() {
             </div>
           ) : (
             <SortableList
-              items={products}
-              onReorder={reorderProducts}
+              items={filteredProducts}
+              onReorder={handleFilteredReorder}
               keyExtractor={(product) => product.id}
               enabled={reorderMode}
               renderItem={(product) => {
@@ -310,6 +499,12 @@ export default function ProductManagement() {
                           className="text-primary-600 hover:text-primary-700 text-sm font-medium px-2 py-1"
                         >
                           Edit
+                        </button>
+                        <button
+                          onClick={() => handleDuplicate(product)}
+                          className="text-blue-600 hover:text-blue-700 text-sm font-medium px-2 py-1"
+                        >
+                          Duplicate
                         </button>
                         <button
                           onClick={() => handleDelete(product.id)}

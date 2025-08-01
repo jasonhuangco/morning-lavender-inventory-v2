@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Filter, Send } from 'lucide-react';
+import { Search, Filter, Send, FileText, X } from 'lucide-react';
 import { useInventory } from '../contexts/InventoryContext';
 import ProductCard from '../components/Inventory/ProductCard';
 import LocationSelector from '../components/Inventory/LocationSelector';
@@ -24,6 +24,8 @@ export default function InventoryPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [inventoryData, setInventoryData] = useState<{[key: string]: { quantity: number; shouldOrder: boolean }}>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [orderNote, setOrderNote] = useState('');
+  const [showNoteModal, setShowNoteModal] = useState(false);
 
   // Initialize inventory data when products change
   useEffect(() => {
@@ -108,11 +110,13 @@ export default function InventoryPage() {
       await submitOrder({
         location_id: currentLocation,
         user_name: userName,
+        notes: orderNote.trim() || undefined,
         products: apiInventoryData
       });
 
       // Reset form after successful submission
       setInventoryData({});
+      setOrderNote(''); // Clear the note as well
       // Note: keeping location and user name for convenience
     } catch (error) {
       console.error('Error submitting order:', error);
@@ -171,6 +175,20 @@ export default function InventoryPage() {
             selectedLocation={currentLocation}
             onLocationChange={setCurrentLocation}
           />
+        </div>
+        
+        {/* Add Note Link */}
+        <div className="flex items-center justify-start">
+          <button
+            onClick={() => setShowNoteModal(true)}
+            className="text-sm text-primary-600 hover:text-primary-700 flex items-center space-x-1"
+          >
+            <FileText className="h-4 w-4" />
+            <span>
+              {orderNote ? 'Edit order note' : 'Add order note'}
+              {orderNote && <span className="text-xs text-gray-500 ml-1">(added)</span>}
+            </span>
+          </button>
         </div>
       </div>
 
@@ -238,6 +256,62 @@ export default function InventoryPage() {
       ) : (
         <div className="text-center py-12">
           <p className="text-gray-500">Please enter your name and select a location to begin counting inventory.</p>
+        </div>
+      )}
+
+      {/* Note Modal */}
+      {showNoteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900">Add Order Note</h2>
+                <button
+                  onClick={() => setShowNoteModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Note Input */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Note (optional)
+                </label>
+                <textarea
+                  value={orderNote}
+                  onChange={(e) => setOrderNote(e.target.value)}
+                  placeholder="Add any additional notes for this order..."
+                  className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
+                  rows={4}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  This note will be included with your order for reference.
+                </p>
+              </div>
+
+              {/* Modal Actions */}
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setShowNoteModal(false)}
+                  className="flex-1 bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  Done
+                </button>
+                <button
+                  onClick={() => {
+                    setOrderNote('');
+                    setShowNoteModal(false);
+                  }}
+                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

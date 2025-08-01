@@ -75,6 +75,7 @@ export interface Order {
 export interface InventoryCount {
   location_id: string;
   user_name: string;
+  notes?: string;
   products: {
     [productId: string]: {
       quantity: number;

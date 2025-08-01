@@ -73,6 +73,8 @@ export const emailService = {
       order_date: new Date().toLocaleDateString(),
       order_time: new Date().toLocaleTimeString(),
       total_items: itemsToOrder.length,
+      order_note: inventoryCount.notes || '', // Add the order note
+      has_note: inventoryCount.notes ? 'yes' : 'no', // Helper for conditional display
       
       // Create formatted list of items
       items_list: itemsToOrder.map(item => 
