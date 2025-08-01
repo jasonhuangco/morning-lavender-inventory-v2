@@ -25,7 +25,7 @@ export default function Layout({ children }: LayoutProps) {
     <div className="min-h-screen bg-gray-50">
       {/* Top Navigation */}
       <nav className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 md:ml-64 md:pl-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <h1 className="text-xl font-semibold text-gray-900">
@@ -47,7 +47,7 @@ export default function Layout({ children }: LayoutProps) {
       </nav>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:ml-64 md:pl-8">
         {children}
       </div>
 
@@ -105,11 +105,6 @@ export default function Layout({ children }: LayoutProps) {
             </nav>
           </div>
         </div>
-      </div>
-
-      {/* Adjust main content for desktop sidebar */}
-      <div className="hidden md:block md:pl-64">
-        {/* This div is just for spacing on desktop */}
       </div>
 
       {/* Bottom padding for mobile navigation */}

@@ -139,14 +139,14 @@ export default function InventoryPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
+      <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
         <h1 className="text-2xl font-bold text-gray-900">Inventory Count</h1>
         
         {currentLocation && userName && (
           <button
             onClick={handleSubmitOrder}
             disabled={isSubmitting || itemsToOrder === 0}
-            className="btn btn-primary flex items-center justify-center md:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn btn-primary flex items-center justify-center sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Send className="h-5 w-5 mr-2" />
             {isSubmitting ? 'Submitting...' : `Submit Order (${itemsToOrder} items)`}
@@ -158,7 +158,7 @@ export default function InventoryPage() {
       <div className="card space-y-4">
         <h2 className="text-lg font-semibold text-gray-900">Start Count</h2>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
           <div>
             <label className="label">Your Name</label>
             <input
@@ -197,7 +197,7 @@ export default function InventoryPage() {
         <>
           {/* Search and Filters */}
           <div className="card space-y-4">
-            <div className="flex flex-col space-y-4 md:flex-row md:items-center md:space-y-0 md:space-x-4">
+            <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-4 max-w-xl">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                 <input
@@ -211,7 +211,7 @@ export default function InventoryPage() {
               
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className="btn btn-secondary flex items-center justify-center md:w-auto"
+                className="btn btn-secondary flex items-center justify-center sm:w-auto"
               >
                 <Filter className="h-5 w-5 mr-2" />
                 Filters
