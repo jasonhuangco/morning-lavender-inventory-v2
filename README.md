@@ -132,3 +132,4 @@ This is a private project for Morning Lavender café operations. For questions o
 ## 📄 License
 
 Private software - All rights reserved.
+# morning-lavender-inventory-v2
