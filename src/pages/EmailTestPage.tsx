@@ -54,7 +54,8 @@ export default function EmailTestPage() {
           sort_order: 0,
           description: '',
           cost: 0,
-          checkbox_only: false
+          checkbox_only: false,
+          hidden: false
         },
         {
           id: 'product-2',
@@ -68,7 +69,8 @@ export default function EmailTestPage() {
           sort_order: 0,
           description: '',
           cost: 0,
-          checkbox_only: false
+          checkbox_only: false,
+          hidden: false
         }
       ];
 

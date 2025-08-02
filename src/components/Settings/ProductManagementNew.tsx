@@ -12,6 +12,7 @@ export default function ProductManagement() {
     cost: 0,
     minimum_threshold: 1,
     checkbox_only: false,
+    hidden: false,
     category_id: '',
     supplier_id: ''
   });
@@ -52,6 +53,7 @@ export default function ProductManagement() {
       cost: product.cost || 0,
       minimum_threshold: product.minimum_threshold,
       checkbox_only: product.checkbox_only,
+      hidden: product.hidden || false,
       category_id: product.category_id || '',
       supplier_id: product.supplier_id || ''
     });
@@ -66,6 +68,7 @@ export default function ProductManagement() {
       cost: 0,
       minimum_threshold: 1,
       checkbox_only: false,
+      hidden: false,
       category_id: '',
       supplier_id: ''
     });
