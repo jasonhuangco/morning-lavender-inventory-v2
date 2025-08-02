@@ -120,6 +120,7 @@ export default function OrderHistoryPage() {
             products(
               name,
               minimum_threshold,
+              checkbox_only,
               categories(name),
               suppliers(name)
             )
@@ -148,6 +149,7 @@ export default function OrderHistoryPage() {
           quantity_ordered: item.quantity || 0, // This is the actual counted quantity
           current_quantity: item.quantity || 0, // Same as quantity_ordered - what was counted
           minimum_threshold: item.products?.minimum_threshold || 0,
+          checkbox_only: item.products?.checkbox_only || false,
           supplier_name: item.products?.suppliers?.name || 'Unknown Supplier',
           category_names: item.products?.categories?.name ? [item.products.categories.name] : []
         }))
@@ -171,6 +173,7 @@ export default function OrderHistoryPage() {
               quantity_ordered: 15,
               current_quantity: 5,
               minimum_threshold: 10,
+              checkbox_only: false,
               supplier_name: 'Costco',
               category_names: ['Coffee']
             },
@@ -180,6 +183,7 @@ export default function OrderHistoryPage() {
               quantity_ordered: 5,
               current_quantity: 0,
               minimum_threshold: 1,
+              checkbox_only: true,
               supplier_name: 'Costco',
               category_names: ['Cleaning']
             }
@@ -434,7 +438,8 @@ export default function OrderHistoryPage() {
                   {selectedOrder.items
                     .filter(item => selectedSupplier === 'all' || item.supplier_name === selectedSupplier)
                     .map((item, index) => {
-                    const difference = item.minimum_threshold - item.quantity_ordered;
+                    // For checkbox-only items, don't calculate difference since counted quantity doesn't apply
+                    const difference = item.checkbox_only ? 0 : item.minimum_threshold - item.quantity_ordered;
                     return (
                       <div key={index} className="border border-gray-200 rounded-lg p-3">
                         <div className="flex justify-between items-start">
@@ -443,14 +448,20 @@ export default function OrderHistoryPage() {
                             <div className="text-sm text-gray-600 mt-1">
                               <p>Supplier: {item.supplier_name}</p>
                               <p>Categories: {item.category_names.join(', ')}</p>
-                              <p>Counted: {item.quantity_ordered} | Minimum: {item.minimum_threshold}</p>
+                              {item.checkbox_only ? (
+                                <p>Minimum: {item.minimum_threshold}</p>
+                              ) : (
+                                <p>Counted: {item.quantity_ordered} | Minimum: {item.minimum_threshold}</p>
+                              )}
                             </div>
                           </div>
-                          <div className="flex flex-col items-end ml-4">
-                            <div className={`font-semibold ${difference > 0 ? 'text-red-600' : difference < 0 ? 'text-green-600' : 'text-gray-900'}`}>
-                              {difference > 0 ? `Need ${difference}` : difference < 0 ? `Over by ${Math.abs(difference)}` : '0'}
+                          {!item.checkbox_only && (
+                            <div className="flex flex-col items-end ml-4">
+                              <div className={`font-semibold ${difference > 0 ? 'text-red-600' : difference < 0 ? 'text-green-600' : 'text-gray-900'}`}>
+                                {difference > 0 ? `Need ${difference}` : difference < 0 ? `Over by ${Math.abs(difference)}` : '0'}
+                              </div>
                             </div>
-                          </div>
+                          )}
                         </div>
                       </div>
                     );

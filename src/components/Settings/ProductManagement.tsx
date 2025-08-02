@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowUpDown } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { useInventory } from '../../contexts/InventoryContext';
 import { Product } from '../../types';
 import { SortableList } from '../SortableList';
@@ -17,6 +17,7 @@ export default function ProductManagement() {
     cost: 0,
     minimum_threshold: 1,
     checkbox_only: false,
+    hidden: false,
     category_id: '',
     supplier_id: ''
   });
@@ -57,6 +58,7 @@ export default function ProductManagement() {
       cost: product.cost || 0,
       minimum_threshold: product.minimum_threshold,
       checkbox_only: product.checkbox_only,
+      hidden: product.hidden || false,
       category_id: product.category_id || '',
       supplier_id: product.supplier_id || ''
     });
@@ -71,6 +73,7 @@ export default function ProductManagement() {
       cost: 0,
       minimum_threshold: 1,
       checkbox_only: false,
+      hidden: false,
       category_id: '',
       supplier_id: ''
     });
@@ -95,6 +98,7 @@ export default function ProductManagement() {
       cost: product.cost || 0,
       minimum_threshold: product.minimum_threshold,
       checkbox_only: product.checkbox_only,
+      hidden: product.hidden || false,
       category_id: product.category_id || '',
       supplier_id: product.supplier_id || ''
     });
@@ -161,6 +165,56 @@ export default function ProductManagement() {
     } catch (error) {
       console.error('Error sorting products by supplier:', error);
       alert('Failed to sort products. Please try again.');
+    }
+  };
+
+  const handleAutoSortByCategory = async () => {
+    try {
+      // Create a copy of products sorted by category name, then by product name
+      const sortedProducts = [...products].sort((a, b) => {
+        const categoryA = categories.find(c => c.id === a.category_id)?.name || '';
+        const categoryB = categories.find(c => c.id === b.category_id)?.name || '';
+        
+        // First sort by category name
+        const categoryCompare = categoryA.localeCompare(categoryB);
+        if (categoryCompare !== 0) {
+          return categoryCompare;
+        }
+        
+        // If categories are the same, sort by product name
+        return a.name.localeCompare(b.name);
+      });
+      
+      // Apply the new sort order using bulk sort
+      await bulkSortProducts(sortedProducts);
+    } catch (error) {
+      console.error('Error sorting products by category:', error);
+      alert('Failed to sort products. Please try again.');
+    }
+  };
+
+  const handleAutoSort = async (sortType: string) => {
+    if (sortType === '') return; // Do nothing if no option selected
+    
+    switch (sortType) {
+      case 'name':
+        await handleAutoSortByName();
+        break;
+      case 'supplier':
+        await handleAutoSortBySupplier();
+        break;
+      case 'category':
+        await handleAutoSortByCategory();
+        break;
+    }
+  };
+
+  const toggleProductVisibility = async (productId: string, currentlyHidden: boolean) => {
+    try {
+      await updateProduct(productId, { hidden: !currentlyHidden });
+    } catch (error) {
+      console.error('Error toggling product visibility:', error);
+      alert('Failed to update product visibility. Please try again.');
     }
   };
 
@@ -304,6 +358,19 @@ export default function ProductManagement() {
             </label>
           </div>
           
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="hidden"
+              checked={formData.hidden}
+              onChange={(e) => setFormData({ ...formData, hidden: e.target.checked })}
+              className="mr-2"
+            />
+            <label htmlFor="hidden" className="text-sm text-gray-700">
+              Hidden from inventory list
+            </label>
+          </div>
+          
           <div className="flex space-x-3">
             <button
               type="submit"
@@ -331,35 +398,25 @@ export default function ProductManagement() {
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-medium text-gray-900">Current Products</h3>
             <div className="flex items-center space-x-4">
-              {/* Auto Sort Options */}
+              {/* Auto Sort Dropdown */}
               <div className="flex items-center space-x-2">
                 <span className="text-sm text-gray-600">Auto Sort:</span>
-                <button
-                  onClick={handleAutoSortByName}
-                  className="text-sm text-primary-600 hover:text-primary-700 px-2 py-1 rounded border border-primary-200 hover:border-primary-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                <select
+                  onChange={(e) => handleAutoSort(e.target.value)}
+                  value=""
+                  className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={reorderMode || selectedCategoryFilter !== 'all' || selectedSupplierFilter !== 'all'}
                   title={
                     selectedCategoryFilter !== 'all' || selectedSupplierFilter !== 'all' 
                       ? "Clear filters to use auto-sort"
-                      : "Sort alphabetically by product name"
+                      : "Sort products by selected criteria"
                   }
                 >
-                  <ArrowUpDown className="h-3 w-3 inline mr-1" />
-                  Name
-                </button>
-                <button
-                  onClick={handleAutoSortBySupplier}
-                  className="text-sm text-primary-600 hover:text-primary-700 px-2 py-1 rounded border border-primary-200 hover:border-primary-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={reorderMode || selectedCategoryFilter !== 'all' || selectedSupplierFilter !== 'all'}
-                  title={
-                    selectedCategoryFilter !== 'all' || selectedSupplierFilter !== 'all'
-                      ? "Clear filters to use auto-sort"
-                      : "Sort by supplier name, then product name"
-                  }
-                >
-                  <ArrowUpDown className="h-3 w-3 inline mr-1" />
-                  Supplier
-                </button>
+                  <option value="">Select sort option</option>
+                  <option value="name">Sort by Name</option>
+                  <option value="supplier">Sort by Supplier</option>
+                  <option value="category">Sort by Category</option>
+                </select>
               </div>
               
               {/* Manual Reorder Toggle */}
@@ -473,9 +530,14 @@ export default function ProductManagement() {
                         </div>
                       )}
                       
-                      <div className="flex-1">
+                      <div className={`flex-1 ${product.hidden ? 'opacity-50' : ''}`}>
                         <div className="flex items-center space-x-3">
                           <h4 className="text-sm font-medium text-gray-900">{product.name}</h4>
+                          {product.hidden && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                              Hidden
+                            </span>
+                          )}
                           {product.checkbox_only && (
                             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                               Checkbox Only
@@ -496,6 +558,17 @@ export default function ProductManagement() {
                     
                     {!reorderMode && (
                       <div className="flex space-x-2">
+                        <button
+                          onClick={() => toggleProductVisibility(product.id, product.hidden || false)}
+                          className={`text-sm font-medium px-2 py-1 ${
+                            product.hidden 
+                              ? 'text-gray-400 hover:text-gray-600' 
+                              : 'text-green-600 hover:text-green-700'
+                          }`}
+                          title={product.hidden ? 'Show in inventory' : 'Hide from inventory'}
+                        >
+                          {product.hidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
                         <button
                           onClick={() => handleEdit(product)}
                           className="text-primary-600 hover:text-primary-700 text-sm font-medium px-2 py-1"

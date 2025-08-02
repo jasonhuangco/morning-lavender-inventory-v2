@@ -32,11 +32,7 @@ export default function ProductCard({
     setLocalQuantity(newQuantity);
     onQuantityChange(newQuantity);
     
-    // Auto-check order if below threshold
-    const shouldAutoOrder = newQuantity < product.minimum_threshold;
-    if (shouldAutoOrder !== shouldOrder) {
-      onOrderToggle(shouldAutoOrder);
-    }
+    // Let the parent component (InventoryPage) handle the auto-checking logic
   };
 
   const handleIncrement = () => {
@@ -55,19 +51,16 @@ export default function ProductCard({
   };
 
   return (
-    <div className={`bg-white rounded-lg border p-4 ${isBelowThreshold ? 'border-red-200 bg-red-50' : 'border-gray-200'}`}>
+    <div className={`bg-white rounded-lg border p-4 ${isBelowThreshold && !isCheckboxOnly ? 'border-red-200 bg-red-50' : 'border-gray-200'}`}>
       {/* Header Row: Product Name and Alert Triangle */}
       <div className="flex items-start justify-between mb-1">
         <h3 className="font-semibold text-gray-900 text-lg leading-tight">
           {product.name}
         </h3>
-        {isBelowThreshold && (
+        {isBelowThreshold && !isCheckboxOnly && (
           <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0" />
         )}
       </div>
-
-      {/* Last Order Date */}
-      <p className="text-sm text-gray-500 mb-1">Last Order: 7/29/25</p>
 
       {/* Category Tag and Controls Row */}
       <div className="flex items-start justify-between mb-2">

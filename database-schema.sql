@@ -48,6 +48,7 @@ CREATE TABLE products (
   cost DECIMAL(10,2),
   minimum_threshold INTEGER DEFAULT 0,
   checkbox_only BOOLEAN DEFAULT FALSE,
+  hidden BOOLEAN DEFAULT FALSE,
   category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
   supplier_id UUID REFERENCES suppliers(id) ON DELETE SET NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),

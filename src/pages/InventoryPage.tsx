@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Search, Filter, Send, FileText, X } from 'lucide-react';
 import { useInventory } from '../contexts/InventoryContext';
 import ProductCard from '../components/Inventory/ProductCard';
@@ -26,24 +26,33 @@ export default function InventoryPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderNote, setOrderNote] = useState('');
   const [showNoteModal, setShowNoteModal] = useState(false);
+  const hasInitialized = useRef(false);
 
   // Initialize inventory data when products change
   useEffect(() => {
-    const initialData: {[key: string]: { quantity: number; shouldOrder: boolean }} = {};
-    products.forEach(product => {
-      const currentQuantity = product.current_quantity || 0;
-      initialData[product.id] = {
-        quantity: currentQuantity,
-        shouldOrder: currentQuantity < product.minimum_threshold
-      };
-    });
-    setInventoryData(initialData);
+    // Only initialize once when products first load, or when new products are added
+    if (!hasInitialized.current && products.length > 0) {
+      const initialData: {[key: string]: { quantity: number; shouldOrder: boolean }} = {};
+      products.forEach(product => {
+        // Default quantity to minimum threshold amount
+        const defaultQuantity = product.minimum_threshold || 0;
+        initialData[product.id] = {
+          quantity: defaultQuantity,
+          // For checkbox-only items, default to unchecked. For regular items, since we're starting at threshold, default to unchecked
+          shouldOrder: false
+        };
+      });
+      setInventoryData(initialData);
+      hasInitialized.current = true;
+    }
   }, [products]);
 
   // Filter products based on search and categories
   const filteredProducts = products.filter(product => {
-    // Note: Location filtering removed since products aren't tied to specific locations in the new schema
-    // All products are available at all locations
+    // Filter out hidden products from inventory view
+    if (product.hidden) {
+      return false;
+    }
 
     // Filter by search term
     if (searchTerm && !product.name.toLowerCase().includes(searchTerm.toLowerCase())) {
@@ -66,7 +75,10 @@ export default function InventoryPage() {
     const product = products.find(p => p.id === productId);
     if (!product) return;
 
-    const shouldOrder = quantity < product.minimum_threshold;
+    // For checkbox-only items, preserve the current shouldOrder state
+    // For regular items, auto-check if below threshold
+    const currentShouldOrder = inventoryData[productId]?.shouldOrder || false;
+    const shouldOrder = product.checkbox_only ? currentShouldOrder : quantity < product.minimum_threshold;
     
     setInventoryData(prev => ({
       ...prev,
@@ -115,7 +127,15 @@ export default function InventoryPage() {
       });
 
       // Reset form after successful submission
-      setInventoryData({});
+      const resetData: {[key: string]: { quantity: number; shouldOrder: boolean }} = {};
+      products.forEach(product => {
+        const defaultQuantity = product.minimum_threshold || 0;
+        resetData[product.id] = {
+          quantity: defaultQuantity,
+          shouldOrder: false
+        };
+      });
+      setInventoryData(resetData);
       setOrderNote(''); // Clear the note as well
       // Note: keeping location and user name for convenience
     } catch (error) {

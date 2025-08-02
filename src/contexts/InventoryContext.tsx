@@ -120,7 +120,8 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
       const products = (productsResult.data || []).map((product: any) => ({
         ...product,
         current_quantity: 0, // Default - will be updated from inventory counts
-        is_checkbox_only: product.checkbox_only // Map database field name
+        is_checkbox_only: product.checkbox_only, // Map database field name
+        hidden: product.hidden || false // Ensure hidden field is preserved
       }));
 
       console.log('✅ Data loaded successfully:', {
@@ -285,7 +286,8 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
       // Add to local state with mapped field
       const newProduct = {
         ...data,
-        is_checkbox_only: data.checkbox_only
+        is_checkbox_only: data.checkbox_only,
+        hidden: data.hidden || false
       };
       setProducts(prev => [...prev, newProduct]);
       
@@ -322,7 +324,8 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
       // Update local state
       const updatedProduct = {
         ...data,
-        is_checkbox_only: data.checkbox_only
+        is_checkbox_only: data.checkbox_only,
+        hidden: data.hidden || false
       };
       setProducts(prev => prev.map(product => 
         product.id === id ? updatedProduct : product

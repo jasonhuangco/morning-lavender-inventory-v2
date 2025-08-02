@@ -42,6 +42,7 @@ export interface Product {
   cost?: number;
   minimum_threshold: number;
   checkbox_only: boolean;
+  hidden: boolean; // Whether this product is hidden from inventory lists
   category_id?: string;
   supplier_id?: string;
   current_quantity?: number; // This will come from inventory_counts
@@ -56,6 +57,7 @@ export interface OrderItem {
   quantity_ordered: number; // Actually the counted quantity (what was counted during inventory)
   current_quantity: number; // Same as quantity_ordered - the counted quantity  
   minimum_threshold: number;
+  checkbox_only: boolean; // Whether this item is checkbox-only
   supplier_name: string;
   category_names: string[];
 }
