@@ -10,6 +10,7 @@ export default function ProductManagement() {
   const [reorderMode, setReorderMode] = useState(false);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
   const [selectedSupplierFilter, setSelectedSupplierFilter] = useState<string>('all');
+  const [autoSortValue, setAutoSortValue] = useState<string>('');
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -132,11 +133,14 @@ export default function ProductManagement() {
 
   const handleAutoSortByName = async () => {
     try {
+      console.log('🔄 Sorting products by name...');
       // Create a copy of products sorted by name
       const sortedProducts = [...products].sort((a, b) => a.name.localeCompare(b.name));
+      console.log('📋 Sorted products:', sortedProducts.map(p => p.name));
       
       // Apply the new sort order using bulk sort
       await bulkSortProducts(sortedProducts);
+      console.log('✅ Products sorted by name successfully');
     } catch (error) {
       console.error('Error sorting products by name:', error);
       alert('Failed to sort products. Please try again.');
@@ -194,18 +198,27 @@ export default function ProductManagement() {
   };
 
   const handleAutoSort = async (sortType: string) => {
+    console.log('🎯 Auto sort triggered with type:', sortType);
     if (sortType === '') return; // Do nothing if no option selected
     
-    switch (sortType) {
-      case 'name':
-        await handleAutoSortByName();
-        break;
-      case 'supplier':
-        await handleAutoSortBySupplier();
-        break;
-      case 'category':
-        await handleAutoSortByCategory();
-        break;
+    try {
+      switch (sortType) {
+        case 'name':
+          await handleAutoSortByName();
+          break;
+        case 'supplier':
+          await handleAutoSortBySupplier();
+          break;
+        case 'category':
+          await handleAutoSortByCategory();
+          break;
+      }
+      // Reset the dropdown after successful sort
+      setAutoSortValue('');
+    } catch (error) {
+      console.error('Error during auto sort:', error);
+      // Reset the dropdown even if there's an error
+      setAutoSortValue('');
     }
   };
 
@@ -402,8 +415,11 @@ export default function ProductManagement() {
               <div className="flex items-center space-x-2">
                 <span className="text-sm text-gray-600">Auto Sort:</span>
                 <select
-                  onChange={(e) => handleAutoSort(e.target.value)}
-                  value=""
+                  onChange={(e) => {
+                    setAutoSortValue(e.target.value);
+                    handleAutoSort(e.target.value);
+                  }}
+                  value={autoSortValue}
                   className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={reorderMode || selectedCategoryFilter !== 'all' || selectedSupplierFilter !== 'all'}
                   title={
