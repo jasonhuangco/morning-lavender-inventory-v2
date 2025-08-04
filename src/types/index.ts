@@ -1,8 +1,12 @@
 export interface User {
   id: string;
-  email: string;
-  name: string;
-  picture?: string;
+  first_name: string;
+  last_name: string;
+  login_code: string;
+  email?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Location {

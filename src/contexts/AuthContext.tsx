@@ -1,13 +1,14 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '../types';
-import { googleAuthService } from '../services/googleAuth';
-import { config } from '../config/env';
+import { codeAuthService } from '../services/codeAuth';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  signIn: () => Promise<void>;
+  signInWithCode: (loginCode: string) => Promise<void>;
   signOut: () => void;
+  getUserDisplayName: () => string;
+  getUserInitials: () => string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -29,47 +30,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Initialize Google OAuth
-    const initializeAuth = async () => {
-      if (config.google.clientId) {
-        try {
-          await googleAuthService.initialize();
-          
-          // Set up event listeners for Google OAuth
-          const handleGoogleLogin = (event: CustomEvent) => {
-            const { user, token } = event.detail;
-            setUser(user);
-            localStorage.setItem('inventory_user', JSON.stringify(user));
-            localStorage.setItem('inventory_token', token);
-          };
-
-          const handleGoogleSignOut = () => {
-            setUser(null);
-            localStorage.removeItem('inventory_user');
-            localStorage.removeItem('inventory_token');
-          };
-
-          window.addEventListener('googleLogin', handleGoogleLogin as EventListener);
-          window.addEventListener('googleSignOut', handleGoogleSignOut as EventListener);
-
-          // Cleanup function
-          return () => {
-            window.removeEventListener('googleLogin', handleGoogleLogin as EventListener);
-            window.removeEventListener('googleSignOut', handleGoogleSignOut as EventListener);
-          };
-        } catch (error) {
-          console.error('Failed to initialize Google OAuth:', error);
-        }
-      }
-    };
-
-    initializeAuth();
-
     // Check if user is already logged in (from localStorage)
     const savedUser = localStorage.getItem('inventory_user');
     if (savedUser) {
       try {
-        setUser(JSON.parse(savedUser));
+        const parsedUser = JSON.parse(savedUser);
+        // Validate that the saved user has the new structure
+        if (parsedUser.first_name && parsedUser.last_name && parsedUser.login_code) {
+          setUser(parsedUser);
+        } else {
+          // Clear old format user data
+          localStorage.removeItem('inventory_user');
+          localStorage.removeItem('inventory_token');
+        }
       } catch (error) {
         console.error('Error parsing saved user:', error);
         localStorage.removeItem('inventory_user');
@@ -79,25 +52,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setLoading(false);
   }, []);
 
-  const signIn = async () => {
+  const signInWithCode = async (loginCode: string) => {
     try {
       setLoading(true);
       
-      if (config.google.clientId) {
-        // Use Google OAuth
-        await googleAuthService.signIn();
-      } else {
-        // Fallback to mock user for development
-        const mockUser: User = {
-          id: '1',
-          email: 'demo@morninglavender.com',
-          name: 'Demo User',
-          picture: undefined
-        };
-        
-        setUser(mockUser);
-        localStorage.setItem('inventory_user', JSON.stringify(mockUser));
-      }
+      // Authenticate with the 6-digit code
+      const authenticatedUser = await codeAuthService.authenticateWithCode(loginCode);
+      
+      // Save user to state and localStorage
+      setUser(authenticatedUser);
+      localStorage.setItem('inventory_user', JSON.stringify(authenticatedUser));
+      
+      console.log('✅ User authenticated successfully:', codeAuthService.getUserDisplayName(authenticatedUser));
     } catch (error) {
       console.error('Sign in error:', error);
       throw error;
@@ -110,17 +76,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setUser(null);
     localStorage.removeItem('inventory_user');
     localStorage.removeItem('inventory_token');
-    
-    if (config.google.clientId) {
-      googleAuthService.signOut();
-    }
+    console.log('✅ User signed out successfully');
+  };
+
+  const getUserDisplayName = (): string => {
+    if (!user) return '';
+    return codeAuthService.getUserDisplayName(user);
+  };
+
+  const getUserInitials = (): string => {
+    if (!user) return '';
+    return codeAuthService.getUserInitials(user);
   };
 
   const value = {
     user,
     loading,
-    signIn,
-    signOut
+    signInWithCode,
+    signOut,
+    getUserDisplayName,
+    getUserInitials
   };
 
   return (

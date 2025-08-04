@@ -9,7 +9,7 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const location = useLocation();
-  const { user, signOut } = useAuth();
+  const { signOut, getUserDisplayName } = useAuth();
 
   const navigation = [
     { name: 'Inventory', href: '/inventory', icon: Package },
@@ -33,7 +33,7 @@ export default function Layout({ children }: LayoutProps) {
               </h1>
             </div>
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-700">{user?.name}</span>
+              <span className="text-sm text-gray-700">{getUserDisplayName()}</span>
               <button
                 onClick={signOut}
                 className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"

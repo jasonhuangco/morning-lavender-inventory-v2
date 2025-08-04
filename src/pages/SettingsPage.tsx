@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { Settings as SettingsIcon, MapPin, Tag, Truck, Package } from 'lucide-react';
+import { Settings as SettingsIcon, MapPin, Tag, Truck, Package, Users } from 'lucide-react';
 import { useInventory } from '../contexts/InventoryContext';
 import LocationManagement from '../components/Settings/LocationManagement';
 import CategoryManagement from '../components/Settings/CategoryManagement';
 import SupplierManagement from '../components/Settings/SupplierManagement';
 import ProductManagement from '../components/Settings/ProductManagement';
+import UserManagement from '../components/UserManagement';
 
-type SettingsTab = 'locations' | 'categories' | 'suppliers' | 'products';
+type SettingsTab = 'locations' | 'categories' | 'suppliers' | 'products' | 'users';
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('locations');
@@ -36,6 +37,12 @@ export default function SettingsPage() {
       name: 'Products',
       icon: Package,
       description: 'Manage inventory products'
+    },
+    {
+      id: 'users' as const,
+      name: 'Users',
+      icon: Users,
+      description: 'Manage user accounts and login codes'
     }
   ];
 
@@ -49,6 +56,8 @@ export default function SettingsPage() {
         return <SupplierManagement />;
       case 'products':
         return <ProductManagement />;
+      case 'users':
+        return <UserManagement />;
       default:
         return null;
     }

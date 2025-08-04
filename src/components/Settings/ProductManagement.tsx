@@ -452,60 +452,81 @@ export default function ProductManagement() {
           </div>
           
           {/* Filters */}
-          <div className="flex items-center space-x-4 mb-4">
-            <span className="text-sm text-gray-600 font-medium">Filters:</span>
-            
-            {/* Category Filter */}
-            <div className="flex items-center space-x-2">
-              <label className="text-sm text-gray-600">Category:</label>
-              <select
-                value={selectedCategoryFilter}
-                onChange={(e) => setSelectedCategoryFilter(e.target.value)}
-                className="text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary-500"
-              >
-                <option value="all">All Categories</option>
-                {categories.map(category => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
+          <div className="mb-4">
+            <div className="flex flex-col md:flex-row md:items-center space-y-3 md:space-y-0 md:space-x-4">
+              <span className="text-sm text-gray-600 font-medium">Filters:</span>
+              
+              {/* Category and Supplier Filters Container */}
+              <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4">
+                {/* Category Filter */}
+                <div className="flex items-center space-x-2">
+                  <label className="text-sm text-gray-600 whitespace-nowrap">Category:</label>
+                  <select
+                    value={selectedCategoryFilter}
+                    onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+                    className="text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary-500 min-w-0 flex-1"
+                  >
+                    <option value="all">All Categories</option>
+                    {categories.map(category => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                {/* Supplier Filter */}
+                <div className="flex items-center space-x-2">
+                  <label className="text-sm text-gray-600 whitespace-nowrap">Supplier:</label>
+                  <select
+                    value={selectedSupplierFilter}
+                    onChange={(e) => setSelectedSupplierFilter(e.target.value)}
+                    className="text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary-500 min-w-0 flex-1"
+                  >
+                    <option value="all">All Suppliers</option>
+                    {suppliers.map(supplier => (
+                      <option key={supplier.id} value={supplier.id}>
+                        {supplier.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              
+              {/* Clear Filters Button - Hidden on mobile, shown inline on larger screens */}
+              {(selectedCategoryFilter !== 'all' || selectedSupplierFilter !== 'all') && (
+                <button
+                  onClick={() => {
+                    setSelectedCategoryFilter('all');
+                    setSelectedSupplierFilter('all');
+                  }}
+                  className="hidden md:inline-block text-sm text-gray-500 hover:text-gray-700 px-2 py-1 rounded border border-gray-200 hover:border-gray-300"
+                >
+                  Clear Filters
+                </button>
+              )}
             </div>
             
-            {/* Supplier Filter */}
-            <div className="flex items-center space-x-2">
-              <label className="text-sm text-gray-600">Supplier:</label>
-              <select
-                value={selectedSupplierFilter}
-                onChange={(e) => setSelectedSupplierFilter(e.target.value)}
-                className="text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary-500"
-              >
-                <option value="all">All Suppliers</option>
-                {suppliers.map(supplier => (
-                  <option key={supplier.id} value={supplier.id}>
-                    {supplier.name}
-                  </option>
-                ))}
-              </select>
+            {/* Mobile Clear Filters Button and Results Count */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0 mt-3">
+              {/* Clear Filters Button - Shown on mobile */}
+              {(selectedCategoryFilter !== 'all' || selectedSupplierFilter !== 'all') && (
+                <button
+                  onClick={() => {
+                    setSelectedCategoryFilter('all');
+                    setSelectedSupplierFilter('all');
+                  }}
+                  className="md:hidden text-sm text-gray-500 hover:text-gray-700 px-2 py-1 rounded border border-gray-200 hover:border-gray-300 self-start"
+                >
+                  Clear Filters
+                </button>
+              )}
+              
+              {/* Results Count */}
+              <span className="text-sm text-gray-500">
+                Showing {filteredProducts.length} of {products.length} products
+              </span>
             </div>
-            
-            {/* Clear Filters */}
-            {(selectedCategoryFilter !== 'all' || selectedSupplierFilter !== 'all') && (
-              <button
-                onClick={() => {
-                  setSelectedCategoryFilter('all');
-                  setSelectedSupplierFilter('all');
-                }}
-                className="text-sm text-gray-500 hover:text-gray-700 px-2 py-1 rounded border border-gray-200 hover:border-gray-300"
-              >
-                Clear Filters
-              </button>
-            )}
-            
-            {/* Results Count */}
-            <span className="text-sm text-gray-500">
-              Showing {filteredProducts.length} of {products.length} products
-            </span>
           </div>
           
           {reorderMode && (
@@ -536,70 +557,83 @@ export default function ProductManagement() {
                 const supplier = suppliers.find(s => s.id === product.supplier_id);
                 
                 return (
-                  <div className={`px-6 py-4 flex items-center justify-between bg-white ${reorderMode ? 'cursor-move hover:bg-gray-50' : 'hover:bg-gray-50'}`}>
-                    <div className="flex items-center space-x-3">
-                      {reorderMode && (
-                        <div className="text-gray-400 hover:text-gray-600">
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 16a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" />
-                          </svg>
+                  <div className={`px-6 py-4 bg-white border border-gray-200 rounded-lg ${reorderMode ? 'cursor-move hover:bg-gray-50' : 'hover:bg-gray-50'}`}>
+                    <div className="flex items-start justify-between mb-2">
+                      {/* Left side content */}
+                      <div className="flex items-center space-x-3 flex-1 min-w-0">
+                        {reorderMode && (
+                          <div className="text-gray-400 hover:text-gray-600 flex-shrink-0">
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 16a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" />
+                            </svg>
+                          </div>
+                        )}
+                        
+                        <div className={`flex-1 min-w-0 ${product.hidden ? 'opacity-50' : ''}`}>
+                          <div className="flex items-center space-x-2">
+                            <h4 className="text-sm font-medium text-gray-900 truncate">{product.name}</h4>
+                            {product.hidden && (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600 flex-shrink-0">
+                                Hidden
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-1 text-xs text-gray-500 space-x-4">
+                            <span>Unit: {product.unit}</span>
+                            <span>Min: {product.minimum_threshold}</span>
+                            {category && <span>Category: {category.name}</span>}
+                            {supplier && <span>Supplier: {supplier.name}</span>}
+                          </div>
+                          {product.description && (
+                            <p className="mt-1 text-xs text-gray-600">{product.description}</p>
+                          )}
                         </div>
-                      )}
+                      </div>
                       
-                      <div className={`flex-1 ${product.hidden ? 'opacity-50' : ''}`}>
-                        <div className="flex items-center space-x-3">
-                          <h4 className="text-sm font-medium text-gray-900">{product.name}</h4>
-                          {product.hidden && (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-                              Hidden
-                            </span>
-                          )}
-                          {product.checkbox_only && (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                              Checkbox Only
-                            </span>
-                          )}
-                        </div>
-                        <div className="mt-1 text-xs text-gray-500 space-x-4">
-                          <span>Unit: {product.unit}</span>
-                          <span>Min: {product.minimum_threshold}</span>
-                          {category && <span>Category: {category.name}</span>}
-                          {supplier && <span>Supplier: {supplier.name}</span>}
-                        </div>
-                        {product.description && (
-                          <p className="mt-1 text-xs text-gray-600">{product.description}</p>
+                      {/* Right side - tags and hide/show icon only */}
+                      <div className="flex items-center space-x-2 flex-shrink-0 ml-4">
+                        {/* Checkbox Only tag */}
+                        {product.checkbox_only && (
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            Checkbox Only
+                          </span>
+                        )}
+                        
+                        {/* Hide/Show icon */}
+                        {!reorderMode && (
+                          <button
+                            onClick={() => toggleProductVisibility(product.id, product.hidden || false)}
+                            className={`text-sm font-medium px-2 py-1 ${
+                              product.hidden 
+                                ? 'text-gray-400 hover:text-gray-600' 
+                                : 'text-green-600 hover:text-green-700'
+                            }`}
+                            title={product.hidden ? 'Show in inventory' : 'Hide from inventory'}
+                          >
+                            {product.hidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
                         )}
                       </div>
                     </div>
                     
+                    {/* Bottom action buttons - horizontal layout */}
                     {!reorderMode && (
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => toggleProductVisibility(product.id, product.hidden || false)}
-                          className={`text-sm font-medium px-2 py-1 ${
-                            product.hidden 
-                              ? 'text-gray-400 hover:text-gray-600' 
-                              : 'text-green-600 hover:text-green-700'
-                          }`}
-                          title={product.hidden ? 'Show in inventory' : 'Hide from inventory'}
-                        >
-                          {product.hidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </button>
+                      <div className="flex justify-start space-x-4 pt-1 border-t border-gray-100">
                         <button
                           onClick={() => handleEdit(product)}
-                          className="text-primary-600 hover:text-primary-700 text-sm font-medium px-2 py-1"
+                          className="text-primary-600 hover:text-primary-700 text-xs font-medium"
                         >
                           Edit
                         </button>
                         <button
                           onClick={() => handleDuplicate(product)}
-                          className="text-blue-600 hover:text-blue-700 text-sm font-medium px-2 py-1"
+                          className="text-blue-600 hover:text-blue-700 text-xs font-medium"
                         >
                           Duplicate
                         </button>
                         <button
                           onClick={() => handleDelete(product.id)}
-                          className="text-red-600 hover:text-red-700 text-sm font-medium px-2 py-1"
+                          className="text-red-600 hover:text-red-700 text-xs font-medium"
                         >
                           Delete
                         </button>

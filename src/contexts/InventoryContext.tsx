@@ -1,14 +1,16 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Product, Location, Category, Supplier, InventoryCount } from '../types';
+import { Product, Location, Category, Supplier, InventoryCount, User } from '../types';
 import { createClient } from '@supabase/supabase-js';
 import { config } from '../config/env';
 import { emailService } from '../services/email';
+import { useAuth } from './AuthContext';
 
 interface InventoryContextType {
   products: Product[];
   locations: Location[];
   categories: Category[];
   suppliers: Supplier[];
+  users: User[];
   currentLocation: string | null;
   userName: string | null;
   loading: boolean;
@@ -42,6 +44,11 @@ interface InventoryContextType {
   updateSupplier: (id: string, supplier: Partial<Supplier>) => Promise<void>;
   deleteSupplier: (id: string) => Promise<void>;
   reorderSuppliers: (sourceIndex: number, destinationIndex: number) => Promise<void>;
+  
+  addUser: (user: Omit<User, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
+  updateUser: (id: string, user: Partial<User>) => Promise<void>;
+  deleteUser: (id: string) => Promise<void>;
+  generateLoginCode: () => Promise<string>;
 }
 
 const InventoryContext = createContext<InventoryContextType | undefined>(undefined);
@@ -59,13 +66,25 @@ interface InventoryProviderProps {
 }
 
 export function InventoryProvider({ children }: InventoryProviderProps) {
+  const { user, getUserDisplayName } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [currentLocation, setCurrentLocation] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Auto-set userName when user changes
+  useEffect(() => {
+    if (user) {
+      const displayName = getUserDisplayName();
+      setUserName(displayName);
+    } else {
+      setUserName(null);
+    }
+  }, [user, getUserDisplayName]);
 
   useEffect(() => {
     loadData();
@@ -81,7 +100,7 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
       console.log('🔄 Loading data from Supabase...');
       
       // Load all data in parallel
-      const [locationsResult, categoriesResult, suppliersResult, productsResult] = await Promise.all([
+      const [locationsResult, categoriesResult, suppliersResult, productsResult, usersResult] = await Promise.all([
         supabase.from('locations').select('*').order('sort_order'),
         supabase.from('categories').select('*').order('sort_order'),
         supabase.from('suppliers').select('*').order('sort_order'),
@@ -92,7 +111,8 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
             category:categories(id, name, color),
             supplier:suppliers(id, name, contact_info)
           `)
-          .order('sort_order')
+          .order('sort_order'),
+        supabase.from('users').select('*').order('created_at', { ascending: false })
       ]);
 
       // Check for errors
@@ -112,11 +132,16 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
         console.error('Error loading products:', productsResult.error);
         throw productsResult.error;
       }
+      if (usersResult.error) {
+        console.error('Error loading users:', usersResult.error);
+        throw usersResult.error;
+      }
 
       // Transform and set data
       const locations = locationsResult.data || [];
       const categories = categoriesResult.data || [];
       const suppliers = suppliersResult.data || [];
+      const users = usersResult.data || [];
       const products = (productsResult.data || []).map((product: any) => ({
         ...product,
         current_quantity: 0, // Default - will be updated from inventory counts
@@ -128,13 +153,15 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
         locations: locations.length,
         categories: categories.length,
         suppliers: suppliers.length,
-        products: products.length
+        products: products.length,
+        users: users.length
       });
 
       setLocations(locations);
       setCategories(categories);
       setSuppliers(suppliers);
       setProducts(products);
+      setUsers(users);
       
       // Set default location if none selected
       if (locations.length > 0 && !currentLocation) {
@@ -710,11 +737,62 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
     await reorderItems(suppliers, setSuppliers, 'suppliers', sourceIndex, destinationIndex);
   };
 
+  // User management functions
+  const addUser = async (userData: Omit<User, 'id' | 'created_at' | 'updated_at'>) => {
+    const supabase = createClient(config.supabase.url, config.supabase.anonKey);
+    const { data, error } = await supabase
+      .from('users')
+      .insert([userData])
+      .select()
+      .single();
+
+    if (error) throw error;
+    
+    setUsers(prev => [...prev, data]);
+  };
+
+  const updateUser = async (id: string, user: Partial<User>) => {
+    const supabase = createClient(config.supabase.url, config.supabase.anonKey);
+    const { data, error } = await supabase
+      .from('users')
+      .update(user)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    
+    setUsers(prev => prev.map(existingUser => existingUser.id === id ? data : existingUser));
+  };
+
+  const deleteUser = async (id: string) => {
+    const supabase = createClient(config.supabase.url, config.supabase.anonKey);
+    const { error } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+    
+    setUsers(prev => prev.filter(user => user.id !== id));
+  };
+
+  const generateLoginCode = async (): Promise<string> => {
+    // Generate a random 6-digit code
+    let code: string;
+    do {
+      code = Math.floor(100000 + Math.random() * 900000).toString();
+    } while (users.some(user => user.login_code === code));
+    
+    return code;
+  };
+
   const value = {
     products,
     locations,
     categories,
     suppliers,
+    users,
     currentLocation,
     userName,
     loading,
@@ -745,7 +823,12 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
     addSupplier,
     updateSupplier,
     deleteSupplier,
-    reorderSuppliers
+    reorderSuppliers,
+    
+    addUser,
+    updateUser,
+    deleteUser,
+    generateLoginCode
   };
 
   return (

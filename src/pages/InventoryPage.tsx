@@ -13,7 +13,6 @@ export default function InventoryPage() {
     currentLocation,
     userName,
     setCurrentLocation,
-    setUserName,
     updateProductQuantity,
     submitOrder,
     loading
@@ -102,8 +101,13 @@ export default function InventoryPage() {
   };
 
   const handleSubmitOrder = async () => {
-    if (!currentLocation || !userName) {
-      alert('Please select a location and enter your name before submitting.');
+    if (!currentLocation) {
+      alert('Please select a location before submitting.');
+      return;
+    }
+
+    if (!userName) {
+      alert('User not properly authenticated. Please log in again.');
       return;
     }
 
@@ -180,14 +184,10 @@ export default function InventoryPage() {
         
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
           <div>
-            <label className="label">Your Name</label>
-            <input
-              type="text"
-              value={userName || ''}
-              onChange={(e) => setUserName(e.target.value)}
-              placeholder="Enter your name"
-              className="input"
-            />
+            <label className="label">Logged in as</label>
+            <div className="input bg-gray-50 text-gray-700 cursor-not-allowed">
+              {userName || 'Loading...'}
+            </div>
           </div>
           
           <LocationSelector
@@ -212,7 +212,7 @@ export default function InventoryPage() {
         </div>
       </div>
 
-      {/* Show products only if location and name are selected */}
+      {/* Show products only if location is selected and user is authenticated */}
       {currentLocation && userName ? (
         <>
           {/* Search and Filters */}
@@ -275,7 +275,7 @@ export default function InventoryPage() {
         </>
       ) : (
         <div className="text-center py-12">
-          <p className="text-gray-500">Please enter your name and select a location to begin counting inventory.</p>
+          <p className="text-gray-500">Please select a location to begin counting inventory.</p>
         </div>
       )}
 
