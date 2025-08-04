@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Coffee, Lock } from 'lucide-react';
+import { Lock } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function LoginPage() {
@@ -42,7 +42,11 @@ export default function LoginPage() {
         <div>
           <div className="flex justify-center">
             <div className="flex items-center justify-center h-16 w-16 rounded-full bg-primary-100">
-              <Coffee className="h-8 w-8 text-primary-600" />
+              <img 
+                src="/favicon-32x32.png" 
+                alt="Morning Lavender Logo" 
+                className="h-8 w-8"
+              />
             </div>
           </div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
