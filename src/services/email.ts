@@ -6,9 +6,20 @@ import { InventoryCount, Product, Location, Category, Supplier } from '../types'
 let isInitialized = false;
 
 const initializeEmailJS = () => {
+  console.log('🔧 Initializing EmailJS...', {
+    isInitialized,
+    hasPublicKey: !!config.emailjs.publicKey,
+    publicKeyPreview: config.emailjs.publicKey ? config.emailjs.publicKey.substring(0, 5) + '...' : 'none'
+  });
+  
   if (!isInitialized && config.emailjs.publicKey) {
     emailjs.init(config.emailjs.publicKey);
     isInitialized = true;
+    console.log('✅ EmailJS initialized successfully');
+  } else if (!config.emailjs.publicKey) {
+    console.log('❌ EmailJS public key missing');
+  } else {
+    console.log('ℹ️ EmailJS already initialized');
   }
 };
 
@@ -41,6 +52,12 @@ export const emailService = {
     }
 
     console.log('📧 EmailJS configured, attempting to send email...');
+    console.log('📧 Config values:', {
+      serviceId: config.emailjs.serviceId,
+      templateId: config.emailjs.templateId,
+      publicKey: config.emailjs.publicKey.substring(0, 5) + '...'
+    });
+    
     initializeEmailJS();
 
     // Find location name
@@ -88,7 +105,7 @@ export const emailService = {
       summary: `${itemsToOrder.length} items need restocking at ${location?.name || 'Unknown Location'}`
     };
 
-    console.log('📧 Sending email with data:', {
+    console.log('📧 Email data prepared:', {
       serviceId: config.emailjs.serviceId,
       templateId: config.emailjs.templateId,
       itemCount: itemsToOrder.length,
@@ -98,11 +115,19 @@ export const emailService = {
         user_name: emailData.user_name,
         location_name: emailData.location_name,
         total_items: emailData.total_items,
-        summary: emailData.summary
+        summary: emailData.summary,
+        itemsListPreview: emailData.items_list.substring(0, 100) + '...'
       }
     });
 
+    // Check if we're in a browser environment
+    if (typeof window === 'undefined') {
+      console.log('⚠️ EmailJS requires browser environment, skipping email send');
+      return { success: true, message: 'Email skipped - not in browser environment' };
+    }
+
     try {
+      console.log('📧 Attempting to send email via EmailJS...');
       const response = await emailjs.send(
         config.emailjs.serviceId,
         config.emailjs.templateId,
