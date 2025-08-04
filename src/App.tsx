@@ -38,32 +38,34 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 
 function App() {
   return (
-    <AuthProvider>
-      <InventoryProvider>
-        <Router>
-          <Routes>
-            <Route path="/login" element={
-              <PublicRoute>
-                <LoginPage />
-              </PublicRoute>
-            } />
-            <Route path="/*" element={
-              <PrivateRoute>
-                <Layout>
-                  <Routes>
-                    <Route path="/" element={<InventoryPage />} />
-                    <Route path="/inventory" element={<InventoryPage />} />
-                    <Route path="/orders" element={<OrderHistoryPage />} />
-                    <Route path="/settings" element={<SettingsPage />} />
-                    <Route path="/email-test" element={<EmailTestPage />} />
-                  </Routes>
-                </Layout>
-              </PrivateRoute>
-            } />
-          </Routes>
-        </Router>
-      </InventoryProvider>
-    </AuthProvider>
+    <div className="tablet-mobile">
+      <AuthProvider>
+        <InventoryProvider>
+          <Router>
+            <Routes>
+              <Route path="/login" element={
+                <PublicRoute>
+                  <LoginPage />
+                </PublicRoute>
+              } />
+              <Route path="/*" element={
+                <PrivateRoute>
+                  <Layout>
+                    <Routes>
+                      <Route path="/" element={<InventoryPage />} />
+                      <Route path="/inventory" element={<InventoryPage />} />
+                      <Route path="/orders" element={<OrderHistoryPage />} />
+                      <Route path="/settings" element={<SettingsPage />} />
+                      <Route path="/email-test" element={<EmailTestPage />} />
+                    </Routes>
+                  </Layout>
+                </PrivateRoute>
+              } />
+            </Routes>
+          </Router>
+        </InventoryProvider>
+      </AuthProvider>
+    </div>
   );
 }
 
