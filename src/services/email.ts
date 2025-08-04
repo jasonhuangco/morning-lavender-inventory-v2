@@ -83,12 +83,26 @@ export const emailService = {
       });
 
     // Create email content
+    const now = new Date();
+    const pstDate = now.toLocaleDateString('en-US', { 
+      timeZone: 'America/Los_Angeles',
+      month: 'numeric',
+      day: 'numeric', 
+      year: 'numeric'
+    });
+    const pstTime = now.toLocaleTimeString('en-US', { 
+      timeZone: 'America/Los_Angeles',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+    
     const emailData = {
       to_email: 'orders@morninglavender.com', // Replace with actual email
       user_name: inventoryCount.user_name,
       location_name: location?.name || 'Unknown Location',
-      order_date: new Date().toLocaleDateString(),
-      order_time: new Date().toLocaleTimeString(),
+      order_date: pstDate,
+      order_time: pstTime,
       total_items: itemsToOrder.length,
       order_note: inventoryCount.notes || '', // Add the order note
       has_note: inventoryCount.notes ? 'yes' : 'no', // Helper for conditional display
