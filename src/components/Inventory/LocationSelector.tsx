@@ -4,7 +4,7 @@ import { Location } from '../../types';
 interface LocationSelectorProps {
   locations: Location[];
   selectedLocation: string | null;
-  onLocationChange: (locationId: string) => void;
+  onLocationChange: (locationId: string | null) => void;
 }
 
 export default function LocationSelector({
@@ -20,7 +20,7 @@ export default function LocationSelector({
       </label>
       <select
         value={selectedLocation || ''}
-        onChange={(e) => onLocationChange(e.target.value)}
+        onChange={(e) => onLocationChange(e.target.value || null)}
         className="input"
         required
       >

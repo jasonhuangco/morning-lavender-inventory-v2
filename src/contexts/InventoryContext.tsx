@@ -16,7 +16,7 @@ interface InventoryContextType {
   loading: boolean;
   
   // Actions
-  setCurrentLocation: (locationId: string) => void;
+  setCurrentLocation: (locationId: string | null) => void;
   setUserName: (name: string) => void;
   updateProductQuantity: (productId: string, quantity: number) => void;
   toggleProductOrder: (productId: string, shouldOrder: boolean) => void;
@@ -162,11 +162,6 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
       setSuppliers(suppliers);
       setProducts(products);
       setUsers(users);
-      
-      // Set default location if none selected
-      if (locations.length > 0 && !currentLocation) {
-        setCurrentLocation(locations[0].id);
-      }
       
     } catch (error) {
       console.error('❌ Error loading data:', error);
