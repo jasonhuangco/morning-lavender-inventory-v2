@@ -43,7 +43,7 @@ export default function LoginPage() {
           <div className="flex justify-center">
             <div className="flex items-center justify-center h-16 w-16 rounded-full bg-primary-100">
               <img 
-                src="/favicon-32x32.png" 
+                src="/apple-touch-icon.png" 
                 alt="Morning Lavender Logo" 
                 className="h-8 w-8"
               />
