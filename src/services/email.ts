@@ -86,7 +86,7 @@ export const emailService = {
     const now = new Date();
     const pstDate = now.toLocaleDateString('en-US', { 
       timeZone: 'America/Los_Angeles',
-      month: 'numeric',
+      month: 'long',
       day: 'numeric', 
       year: 'numeric'
     });
