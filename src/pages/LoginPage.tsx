@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Lock } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import appleTouchIcon from '/apple-touch-icon.png';
 
 export default function LoginPage() {
   const [loginCode, setLoginCode] = useState('');
@@ -43,7 +44,7 @@ export default function LoginPage() {
           <div className="flex justify-center">
             <div className="flex items-center justify-center h-16 w-16 rounded-full bg-primary-100">
               <img 
-                src="/apple-touch-icon.png" 
+                src={appleTouchIcon} 
                 alt="Morning Lavender Logo" 
                 className="h-8 w-8"
               />
