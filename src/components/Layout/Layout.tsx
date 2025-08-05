@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Package, ClipboardList, Settings, LogOut } from 'lucide-react';
+import { Package, ClipboardList, Settings, LogOut, BarChart3 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface LayoutProps {
@@ -13,6 +13,7 @@ export default function Layout({ children }: LayoutProps) {
 
   const navigation = [
     { name: 'Inventory', href: '/inventory', icon: Package },
+    { name: 'Analytics', href: '/analytics', icon: BarChart3 },
     { name: 'Orders', href: '/orders', icon: ClipboardList },
     { name: 'Settings', href: '/settings', icon: Settings },
   ];
@@ -53,7 +54,7 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Bottom Navigation - Mobile */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 md:hidden">
-        <div className="grid grid-cols-3 py-2">
+        <div className="grid grid-cols-4 py-2">
           {navigation.map((item) => {
             const Icon = item.icon;
             return (
