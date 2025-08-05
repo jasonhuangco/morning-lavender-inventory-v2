@@ -109,17 +109,6 @@ export default function LoginPage() {
               )}
             </button>
           </div>
-          
-          <div className="text-center text-xs text-gray-500">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <p className="text-blue-800 font-medium">🔑 Demo Login Codes</p>
-              <div className="text-blue-700 mt-1 space-y-1">
-                <p><strong>000000</strong> - Demo User</p>
-                <p><strong>123456</strong> - John Smith</p>
-                <p><strong>234567</strong> - Sarah Johnson</p>
-              </div>
-            </div>
-          </div>
         </form>
       </div>
     </div>

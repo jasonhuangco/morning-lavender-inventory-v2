@@ -324,10 +324,29 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
 
       // Send email notification
       try {
-        await emailService.sendOrderEmail(inventoryCount, products, locations, categories, suppliers);
-        console.log('✅ Email sent successfully');
+        console.log('📧 Attempting to send email notification...');
+        console.log('📧 Email data:', {
+          user_name: inventoryCount.user_name,
+          location_id: inventoryCount.location_id,
+          notes: inventoryCount.notes,
+          productsCount: products.length,
+          locationsCount: locations.length,
+          itemsToOrderCount: itemsToOrder.length
+        });
+        
+        const emailResult = await emailService.sendOrderEmail(inventoryCount, products, locations, categories, suppliers);
+        console.log('✅ Email sent successfully:', emailResult);
       } catch (emailError) {
         console.error('❌ Email failed (order still saved):', emailError);
+        console.error('❌ Email error details:', {
+          message: (emailError as any)?.message,
+          stack: (emailError as any)?.stack,
+          name: (emailError as any)?.name,
+          fullError: emailError
+        });
+        
+        // Show alert to user about email failure
+        alert('Order saved successfully, but email notification failed. Please check console for details.');
       }
 
       alert(`Order submitted successfully! Order #${orderNumber}`);

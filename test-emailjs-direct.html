@@ -1,0 +1,56 @@
+// Simple EmailJS Test
+// This will test if EmailJS is working by sending a test email
+
+import emailjs from '@emailjs/browser';
+
+async function testEmailJSSend() {
+  console.log('🧪 Testing EmailJS Direct Send...');
+  
+  const config = {
+    serviceId: 'service_oyxw87u',
+    templateId: 'template_irdg0hr',
+    publicKey: 'E4d2XpvFoCjODpBuS'
+  };
+
+  // Initialize EmailJS
+  emailjs.init(config.publicKey);
+  console.log('✅ EmailJS initialized');
+
+  // Test data
+  const testData = {
+    to_email: 'test@morninglavender.com',
+    user_name: 'Test User',
+    location_name: 'Test Location',
+    order_date: '8/5/2025',
+    order_time: '2:30 PM',
+    total_items: 3,
+    items_list: '• Test Product 1\n  Current: 2 | Minimum: 5\n  Supplier: Test Supplier\n\n• Test Product 2\n  Current: 0 | Minimum: 3\n  Supplier: Another Supplier',
+    summary: '3 items need restocking at Test Location',
+    order_note: 'This is a test order note',
+    has_note: 'yes'
+  };
+
+  console.log('📧 Sending test email with data:', testData);
+
+  try {
+    const response = await emailjs.send(
+      config.serviceId,
+      config.templateId,
+      testData
+    );
+
+    console.log('✅ Test email sent successfully!');
+    console.log('Response:', response);
+    return true;
+  } catch (error) {
+    console.error('❌ Test email failed:');
+    console.error('Error:', error);
+    console.error('Error message:', error?.message);
+    console.error('Error status:', error?.status);
+    console.error('Error text:', error?.text);
+    return false;
+  }
+}
+
+// Run the test
+testEmailJSSend();
