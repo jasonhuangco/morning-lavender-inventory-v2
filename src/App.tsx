@@ -23,6 +23,17 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   return user ? <>{children}</> : <Navigate to="/login" />;
 }
 
+function ProtectedRoute({ children, feature }: { children: React.ReactNode; feature?: 'analytics' | 'orders' | 'settings' }) {
+  const { hasAccess } = useAuth();
+  
+  // If a feature is specified and user doesn't have access, redirect to inventory
+  if (feature && !hasAccess(feature)) {
+    return <Navigate to="/inventory" />;
+  }
+  
+  return <>{children}</>;
+}
+
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   
@@ -55,9 +66,21 @@ function App() {
                     <Routes>
                       <Route path="/" element={<InventoryPage />} />
                       <Route path="/inventory" element={<InventoryPage />} />
-                      <Route path="/analytics" element={<AnalyticsPage />} />
-                      <Route path="/orders" element={<OrderHistoryPage />} />
-                      <Route path="/settings" element={<SettingsPage />} />
+                      <Route path="/analytics" element={
+                        <ProtectedRoute feature="analytics">
+                          <AnalyticsPage />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/orders" element={
+                        <ProtectedRoute feature="orders">
+                          <OrderHistoryPage />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/settings" element={
+                        <ProtectedRoute feature="settings">
+                          <SettingsPage />
+                        </ProtectedRoute>
+                      } />
                       <Route path="/email-test" element={<EmailTestPage />} />
                     </Routes>
                   </Layout>

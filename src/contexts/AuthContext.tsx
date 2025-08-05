@@ -7,8 +7,12 @@ interface AuthContextType {
   loading: boolean;
   signInWithCode: (loginCode: string) => Promise<void>;
   signOut: () => void;
+  refreshUser: () => Promise<void>;
   getUserDisplayName: () => string;
   getUserInitials: () => string;
+  isAdmin: () => boolean;
+  isStaff: () => boolean;
+  hasAccess: (feature: 'analytics' | 'orders' | 'settings') => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -37,6 +41,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const parsedUser = JSON.parse(savedUser);
         // Validate that the saved user has the new structure
         if (parsedUser.first_name && parsedUser.last_name && parsedUser.login_code) {
+          // Add default role if not present (for backward compatibility)
+          if (!parsedUser.role) {
+            parsedUser.role = 'staff';
+          }
           setUser(parsedUser);
         } else {
           // Clear old format user data
@@ -79,6 +87,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
     console.log('✅ User signed out successfully');
   };
 
+  const refreshUser = async () => {
+    if (!user?.login_code) return;
+    
+    try {
+      console.log('🔄 Refreshing user data from database...');
+      const refreshedUser = await codeAuthService.authenticateWithCode(user.login_code);
+      setUser(refreshedUser);
+      localStorage.setItem('inventory_user', JSON.stringify(refreshedUser));
+      console.log('✅ User data refreshed:', refreshedUser.first_name, refreshedUser.last_name, 'Role:', refreshedUser.role);
+    } catch (error) {
+      console.error('❌ Failed to refresh user data:', error);
+      // Keep the current user data if refresh fails
+    }
+  };
+
   const getUserDisplayName = (): string => {
     if (!user) return '';
     return codeAuthService.getUserDisplayName(user);
@@ -89,13 +112,42 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return codeAuthService.getUserInitials(user);
   };
 
+  const isAdmin = (): boolean => {
+    if (!user) return false;
+    return codeAuthService.isAdmin(user);
+  };
+
+  const isStaff = (): boolean => {
+    if (!user) return false;
+    return codeAuthService.isStaff(user);
+  };
+
+  const hasAccess = (feature: 'analytics' | 'orders' | 'settings'): boolean => {
+    if (!user) return false;
+    // Admin has access to everything
+    if (codeAuthService.isAdmin(user)) return true;
+    // Staff only has access to inventory, no access to other features
+    switch (feature) {
+      case 'analytics':
+      case 'orders':
+      case 'settings':
+        return false; // Staff users cannot access these features
+      default:
+        return false;
+    }
+  };
+
   const value = {
     user,
     loading,
     signInWithCode,
     signOut,
+    refreshUser,
     getUserDisplayName,
-    getUserInitials
+    getUserInitials,
+    isAdmin,
+    isStaff,
+    hasAccess
   };
 
   return (

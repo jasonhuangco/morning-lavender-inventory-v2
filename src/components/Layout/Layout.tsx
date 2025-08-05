@@ -9,14 +9,19 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const location = useLocation();
-  const { signOut, getUserDisplayName } = useAuth();
+  const { signOut, getUserDisplayName, hasAccess, user } = useAuth();
 
-  const navigation = [
-    { name: 'Inventory', href: '/inventory', icon: Package },
-    { name: 'Analytics', href: '/analytics', icon: BarChart3 },
-    { name: 'Orders', href: '/orders', icon: ClipboardList },
-    { name: 'Settings', href: '/settings', icon: Settings },
+  const allNavigation = [
+    { name: 'Inventory', href: '/inventory', icon: Package, requiresAccess: null },
+    { name: 'Analytics', href: '/analytics', icon: BarChart3, requiresAccess: 'analytics' as const },
+    { name: 'Orders', href: '/orders', icon: ClipboardList, requiresAccess: 'orders' as const },
+    { name: 'Settings', href: '/settings', icon: Settings, requiresAccess: 'settings' as const },
   ];
+
+  // Filter navigation based on user access
+  const navigation = allNavigation.filter(item => 
+    item.requiresAccess === null || hasAccess(item.requiresAccess)
+  );
 
   const isActive = (path: string) => {
     return location.pathname === path || (path === '/inventory' && location.pathname === '/');
@@ -34,7 +39,20 @@ export default function Layout({ children }: LayoutProps) {
               </h1>
             </div>
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-700">{getUserDisplayName()}</span>
+              <div className="text-right">
+                <span className="text-sm text-gray-700">{getUserDisplayName()}</span>
+                {user && (
+                  <div className="text-xs text-gray-500">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      user.role === 'admin' 
+                        ? 'bg-purple-100 text-purple-800' 
+                        : 'bg-blue-100 text-blue-800'
+                    }`}>
+                      {user.role === 'admin' ? 'Admin' : 'Staff'}
+                    </span>
+                  </div>
+                )}
+              </div>
               <button
                 onClick={signOut}
                 className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
@@ -54,7 +72,7 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Bottom Navigation - Mobile */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 md:hidden">
-        <div className="grid grid-cols-4 py-2">
+        <div className={`grid py-2 ${navigation.length === 1 ? 'grid-cols-1' : navigation.length === 2 ? 'grid-cols-2' : navigation.length === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
           {navigation.map((item) => {
             const Icon = item.icon;
             return (

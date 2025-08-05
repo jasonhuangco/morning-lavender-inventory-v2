@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { config } from '../config/env';
 import { emailService } from '../services/email';
 import { useAuth } from './AuthContext';
+import { getRoleForCode } from '../constants/roles';
 
 interface InventoryContextType {
   products: Product[];
@@ -141,7 +142,13 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
       const locations = locationsResult.data || [];
       const categories = categoriesResult.data || [];
       const suppliers = suppliersResult.data || [];
-      const users = usersResult.data || [];
+      
+      // Process users and ensure they have roles
+      const users = (usersResult.data || []).map((user: any) => ({
+        ...user,
+        role: user.role || getRoleForCode(user.login_code)
+      }));
+      
       const products = (productsResult.data || []).map((product: any) => ({
         ...product,
         current_quantity: 0, // Default - will be updated from inventory counts
@@ -166,11 +173,60 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
     } catch (error) {
       console.error('❌ Error loading data:', error);
       
-      // Fall back to empty arrays instead of mock data
+      // Fall back to empty arrays for most data, but provide mock users for user management
       setLocations([]);
       setCategories([]);
       setSuppliers([]);
       setProducts([]);
+      
+      // Set mock users so user management works even when database is unavailable
+      const mockUsers = [
+        {
+          id: '1',
+          first_name: 'Admin',
+          last_name: 'User',
+          login_code: '236868',
+          email: 'admin1@morninglavender.com',
+          role: 'admin' as const,
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        },
+        {
+          id: '2',
+          first_name: 'Manager',
+          last_name: 'Admin',
+          login_code: '622366',
+          email: 'admin2@morninglavender.com',
+          role: 'admin' as const,
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        },
+        {
+          id: '3',
+          first_name: 'Super',
+          last_name: 'Admin',
+          login_code: '054673',
+          email: 'admin3@morninglavender.com',
+          role: 'admin' as const,
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        },
+        {
+          id: '6',
+          first_name: 'Staff',
+          last_name: 'Member',
+          login_code: '222222',
+          email: 'staff@morninglavender.com',
+          role: 'staff' as const,
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+      ];
+      setUsers(mockUsers);
     } finally {
       setLoading(false);
     }
@@ -735,41 +791,138 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
   // User management functions
   const addUser = async (userData: Omit<User, 'id' | 'created_at' | 'updated_at'>) => {
     const supabase = createClient(config.supabase.url, config.supabase.anonKey);
-    const { data, error } = await supabase
-      .from('users')
-      .insert([userData])
-      .select()
-      .single();
-
-    if (error) throw error;
     
-    setUsers(prev => [...prev, data]);
+    try {
+      // First, try to insert with the role field
+      let { data, error } = await supabase
+        .from('users')
+        .insert([userData])
+        .select()
+        .single();
+
+      // If there's a column error for 'role', try without it
+      if (error && error.message?.includes('role')) {
+        console.warn('Role column not found in database, inserting without role field');
+        const userWithoutRole = { ...userData };
+        delete (userWithoutRole as any).role;
+        
+        const result = await supabase
+          .from('users')
+          .insert([userWithoutRole])
+          .select()
+          .single();
+        
+        data = result.data;
+        error = result.error;
+      }
+
+      if (error) {
+        console.error('Error adding user:', error);
+        throw error;
+      }
+
+      // Process the new user data and ensure role is properly set
+      const newUser = {
+        ...data,
+        role: userData.role || data.role || getRoleForCode(data.login_code)
+      };
+      
+      setUsers(prev => [...prev, newUser]);
+      
+      console.log('✅ User added successfully:', newUser);
+    } catch (error) {
+      console.error('❌ Failed to add user:', error);
+      throw error;
+    }
   };
 
   const updateUser = async (id: string, user: Partial<User>) => {
     const supabase = createClient(config.supabase.url, config.supabase.anonKey);
-    const { data, error } = await supabase
-      .from('users')
-      .update(user)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw error;
     
-    setUsers(prev => prev.map(existingUser => existingUser.id === id ? data : existingUser));
+    try {
+      // First, try to update with the role field
+      let { data, error } = await supabase
+        .from('users')
+        .update(user)
+        .eq('id', id)
+        .select()
+        .single();
+
+      // If there's a column error for 'role', try without it
+      if (error && error.message?.includes('role')) {
+        console.warn('Role column not found in database, updating without role field');
+        const userWithoutRole = { ...user };
+        delete (userWithoutRole as any).role;
+        
+        const result = await supabase
+          .from('users')
+          .update(userWithoutRole)
+          .eq('id', id)
+          .select()
+          .single();
+        
+        data = result.data;
+        error = result.error;
+      }
+
+      if (error) {
+        console.error('Error updating user:', error);
+        throw error;
+      }
+
+      // Process the updated user data and ensure role is properly set
+      const updatedUser = {
+        ...data,
+        role: user.role || data.role || getRoleForCode(data.login_code)
+      };
+      
+      setUsers(prev => prev.map(existingUser => existingUser.id === id ? updatedUser : existingUser));
+      
+      // 🔥 CRITICAL: Check if we updated the currently logged-in user's role
+      const currentUser = JSON.parse(localStorage.getItem('inventory_user') || '{}');
+      if (currentUser.id === id && user.role && user.role !== currentUser.role) {
+        console.log('🔄 Current user role changed, updating localStorage cache');
+        
+        // Update the cached user data with the new role
+        const updatedCurrentUser = { ...currentUser, role: user.role };
+        localStorage.setItem('inventory_user', JSON.stringify(updatedCurrentUser));
+        
+        // Show notification that user needs to refresh or their session will be updated
+        console.log('⚠️ User role updated. Changes will take effect immediately.');
+        
+        // Force a page reload to ensure all components get the new role
+        // This ensures the navigation and access controls are immediately updated
+        window.location.reload();
+      }
+      
+      console.log('✅ User updated successfully:', updatedUser);
+    } catch (error) {
+      console.error('❌ Failed to update user:', error);
+      throw error;
+    }
   };
 
   const deleteUser = async (id: string) => {
     const supabase = createClient(config.supabase.url, config.supabase.anonKey);
-    const { error } = await supabase
-      .from('users')
-      .delete()
-      .eq('id', id);
-
-    if (error) throw error;
     
-    setUsers(prev => prev.filter(user => user.id !== id));
+    try {
+      const { error } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.error('Error deleting user:', error);
+        throw error;
+      }
+      
+      setUsers(prev => prev.filter(user => user.id !== id));
+      
+      console.log('✅ User deleted successfully');
+    } catch (error) {
+      console.error('❌ Failed to delete user:', error);
+      throw error;
+    }
   };
 
   const generateLoginCode = async (): Promise<string> => {

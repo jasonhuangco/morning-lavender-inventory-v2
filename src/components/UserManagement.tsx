@@ -17,6 +17,7 @@ const UserManagement: React.FC = () => {
     last_name: '',
     login_code: '',
     email: '',
+    role: 'staff' as 'admin' | 'staff',
     is_active: true
   });
 
@@ -26,6 +27,7 @@ const UserManagement: React.FC = () => {
       last_name: '',
       login_code: '',
       email: '',
+      role: 'staff',
       is_active: true
     });
     setIsAddingUser(false);
@@ -40,6 +42,7 @@ const UserManagement: React.FC = () => {
       last_name: '',
       login_code: '',
       email: '',
+      role: 'staff',
       is_active: true
     });
   };
@@ -51,6 +54,7 @@ const UserManagement: React.FC = () => {
       last_name: user.last_name,
       login_code: user.login_code,
       email: user.email || '',
+      role: user.role || 'staff', // Default to staff if role is not set
       is_active: user.is_active
     });
   };
@@ -104,13 +108,31 @@ const UserManagement: React.FC = () => {
 
     try {
       if (editingUser) {
+        // Check if we're changing the role
+        const isRoleChange = editingUser.role !== formData.role;
+        const currentUserCode = JSON.parse(localStorage.getItem('inventory_user') || '{}').login_code;
+        const isCurrentUser = editingUser.login_code === currentUserCode;
+        
         await updateUser(editingUser.id, formData);
+        
+        // Show notification for role changes
+        if (isRoleChange) {
+          if (isCurrentUser) {
+            alert(`⚠️ Your role has been changed to ${formData.role}. The page will refresh to apply the changes.`);
+            // The page will auto-refresh from the updateUser function
+          } else {
+            alert(`✅ User role updated to ${formData.role}. They will see changes on their next login.`);
+          }
+        }
       } else {
         await addUser(formData);
       }
       resetForm();
-    } catch (err) {
-      setError(editingUser ? 'Failed to update user' : 'Failed to add user');
+    } catch (err: any) {
+      console.error('User operation failed:', err);
+      const action = editingUser ? 'update' : 'add';
+      const errorMessage = err?.message || `Failed to ${action} user`;
+      setError(`Failed to ${action} user: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -123,8 +145,10 @@ const UserManagement: React.FC = () => {
     try {
       await deleteUser(id);
       setShowConfirmDelete(null);
-    } catch (err) {
-      setError('Failed to delete user');
+    } catch (err: any) {
+      console.error('Delete user failed:', err);
+      const errorMessage = err?.message || 'Unknown error occurred';
+      setError(`Failed to delete user: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -206,6 +230,21 @@ const UserManagement: React.FC = () => {
                 onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                User Role *
+              </label>
+              <select
+                value={formData.role}
+                onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value as 'admin' | 'staff' }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              >
+                <option value="staff">Staff - Inventory Access Only</option>
+                <option value="admin">Admin - Full Access</option>
+              </select>
             </div>
 
             <div>
@@ -293,6 +332,11 @@ const UserManagement: React.FC = () => {
                       {user.email && (
                         <p className="text-sm text-gray-500">{user.email}</p>
                       )}
+                      <p className="text-sm text-gray-600">
+                        Role: <span className={`font-medium ${(user.role || 'staff') === 'admin' ? 'text-purple-600' : 'text-blue-600'}`}>
+                          {(user.role || 'staff') === 'admin' ? 'Admin' : 'Staff'}
+                        </span>
+                      </p>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-gray-600">Code:</span>
