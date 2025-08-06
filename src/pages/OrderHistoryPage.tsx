@@ -12,6 +12,7 @@ export default function OrderHistoryPage() {
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [selectedYear, setSelectedYear] = useState<string>('all');
+  const [reviewedItems, setReviewedItems] = useState<Record<string, Record<string, boolean>>>({});
 
   const handleOrderSelect = (order: Order) => {
     setSelectedOrder(order);
@@ -101,7 +102,41 @@ export default function OrderHistoryPage() {
 
   useEffect(() => {
     loadOrders();
+    loadReviewedItems();
   }, []);
+
+  const loadReviewedItems = () => {
+    const stored = localStorage.getItem('orderHistoryReviewedItems');
+    if (stored) {
+      try {
+        setReviewedItems(JSON.parse(stored));
+      } catch (error) {
+        console.error('Error loading reviewed items from localStorage:', error);
+      }
+    }
+  };
+
+  const saveReviewedItems = (items: Record<string, Record<string, boolean>>) => {
+    localStorage.setItem('orderHistoryReviewedItems', JSON.stringify(items));
+    setReviewedItems(items);
+  };
+
+  const toggleItemReviewed = (orderId: string, productId: string) => {
+    const itemKey = `${orderId}-${productId}`;
+    const newReviewedItems = { ...reviewedItems };
+    
+    if (!newReviewedItems[orderId]) {
+      newReviewedItems[orderId] = {};
+    }
+    
+    newReviewedItems[orderId][itemKey] = !newReviewedItems[orderId][itemKey];
+    saveReviewedItems(newReviewedItems);
+  };
+
+  const isItemReviewed = (orderId: string, productId: string) => {
+    const itemKey = `${orderId}-${productId}`;
+    return reviewedItems[orderId]?.[itemKey] || false;
+  };
 
   const loadOrders = async () => {
     try {
@@ -418,7 +453,33 @@ export default function OrderHistoryPage() {
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-medium text-gray-900">Items to Order</h3>
                   
-                  {/* Supplier Filter */}
+                  {/* Review Progress and Clear Button */}
+                  <div className="flex items-center space-x-4">
+                    <div className="text-sm text-gray-600">
+                      {selectedOrder.items.filter((item) => isItemReviewed(selectedOrder.id, item.product_id)).length} of {selectedOrder.items.length} reviewed
+                    </div>
+                    <button
+                      onClick={() => {
+                        const newReviewedItems = { ...reviewedItems };
+                        if (!newReviewedItems[selectedOrder.id]) {
+                          newReviewedItems[selectedOrder.id] = {};
+                        }
+                        // Clear all reviewed items for this order
+                        Object.keys(newReviewedItems[selectedOrder.id]).forEach(key => {
+                          if (key.startsWith(selectedOrder.id)) {
+                            delete newReviewedItems[selectedOrder.id][key];
+                          }
+                        });
+                        saveReviewedItems(newReviewedItems);
+                      }}
+                      className="text-sm text-gray-500 hover:text-gray-700 underline"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center space-x-2">
                     <label className="text-sm text-gray-600">Filter by supplier:</label>
                     <select
@@ -440,28 +501,45 @@ export default function OrderHistoryPage() {
                     .map((item, index) => {
                     // For checkbox-only items, don't calculate difference since counted quantity doesn't apply
                     const difference = item.checkbox_only ? 0 : item.minimum_threshold - item.quantity_ordered;
+                    const isReviewed = isItemReviewed(selectedOrder.id, item.product_id);
+                    
                     return (
-                      <div key={index} className="border border-gray-200 rounded-lg p-3">
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <h4 className="font-medium text-gray-900">{item.product_name}</h4>
-                            <div className="text-sm text-gray-600 mt-1">
-                              <p>Supplier: {item.supplier_name}</p>
-                              <p>Categories: {item.category_names.join(', ')}</p>
-                              {item.checkbox_only ? (
-                                <p>Minimum: {item.minimum_threshold}</p>
-                              ) : (
-                                <p>Counted: {item.quantity_ordered} | Minimum: {item.minimum_threshold}</p>
-                              )}
-                            </div>
+                      <div key={index} className={`border border-gray-200 rounded-lg p-3 transition-all ${isReviewed ? 'bg-gray-50 opacity-60' : 'bg-white'}`}>
+                        <div className="flex items-start">
+                          {/* Checkbox */}
+                          <div className="flex-shrink-0 mr-3 mt-1">
+                            <input
+                              type="checkbox"
+                              checked={isReviewed}
+                              onChange={() => toggleItemReviewed(selectedOrder.id, item.product_id)}
+                              className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded cursor-pointer"
+                            />
                           </div>
-                          {!item.checkbox_only && (
-                            <div className="flex flex-col items-end ml-4">
-                              <div className={`font-semibold ${difference > 0 ? 'text-red-600' : difference < 0 ? 'text-green-600' : 'text-gray-900'}`}>
-                                {difference > 0 ? `Need ${difference}` : difference < 0 ? `Over by ${Math.abs(difference)}` : '0'}
+                          
+                          {/* Item Content */}
+                          <div className="flex justify-between items-start flex-1">
+                            <div className="flex-1">
+                              <h4 className={`font-medium ${isReviewed ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
+                                {item.product_name}
+                              </h4>
+                              <div className={`text-sm mt-1 ${isReviewed ? 'text-gray-400' : 'text-gray-600'}`}>
+                                <p>Supplier: {item.supplier_name}</p>
+                                <p>Categories: {item.category_names.join(', ')}</p>
+                                {item.checkbox_only ? (
+                                  <p>Minimum: {item.minimum_threshold}</p>
+                                ) : (
+                                  <p>Counted: {item.quantity_ordered} | Minimum: {item.minimum_threshold}</p>
+                                )}
                               </div>
                             </div>
-                          )}
+                            {!item.checkbox_only && (
+                              <div className="flex flex-col items-end ml-4">
+                                <div className={`font-semibold ${isReviewed ? 'text-gray-400' : difference > 0 ? 'text-red-600' : difference < 0 ? 'text-green-600' : 'text-gray-900'}`}>
+                                  {difference > 0 ? `Need ${difference}` : difference < 0 ? `Over by ${Math.abs(difference)}` : '0'}
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );

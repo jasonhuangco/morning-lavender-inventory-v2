@@ -11,6 +11,7 @@ export default function ProductManagement() {
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
   const [selectedSupplierFilter, setSelectedSupplierFilter] = useState<string>('all');
   const [autoSortValue, setAutoSortValue] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -231,11 +232,20 @@ export default function ProductManagement() {
     }
   };
 
-  // Filter products based on selected category and supplier
+  // Filter products based on selected category, supplier, and search query
   const filteredProducts = products.filter(product => {
     const categoryMatch = selectedCategoryFilter === 'all' || product.category_id === selectedCategoryFilter;
     const supplierMatch = selectedSupplierFilter === 'all' || product.supplier_id === selectedSupplierFilter;
-    return categoryMatch && supplierMatch;
+    
+    // Search functionality - search in product name, description, and supplier/category names
+    const searchMatch = searchQuery === '' || [
+      product.name,
+      product.description || '',
+      suppliers.find(s => s.id === product.supplier_id)?.name || '',
+      categories.find(c => c.id === product.category_id)?.name || ''
+    ].some(field => field.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    return categoryMatch && supplierMatch && searchMatch;
   });
 
   return (
@@ -448,6 +458,19 @@ export default function ProductManagement() {
                   Manual Reorder
                 </label>
               </div>
+            </div>
+          </div>
+          
+          {/* Search Box */}
+          <div className="mb-4">
+            <div className="max-w-md">
+              <input
+                type="text"
+                placeholder="Search products, suppliers, or categories..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
+              />
             </div>
           </div>
           
