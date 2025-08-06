@@ -261,9 +261,11 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
       // Generate unique order number
       const orderNumber = `ORD-${Date.now()}`;
       
-      // Prepare items that need ordering
-      const itemsToOrder = Object.entries(inventoryCount.products)
-        .filter(([_, data]) => data.should_order)
+      // Prepare ONLY actually counted items (for complete inventory record)
+      // This includes:
+      // 1. Non-checkbox items that were counted (quantity > 0)
+      // 2. Checkbox-only items that were checked (should_order = true)
+      const allCountedItems = Object.entries(inventoryCount.products)
         .map(([productId, data]) => {
           const product = products.find(p => p.id === productId);
           const supplier = suppliers.find(s => s.id === product?.supplier_id);
@@ -278,9 +280,15 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
             checkbox_only: product?.checkbox_only || false,
             unit: product?.unit || '',
             supplier_name: supplier?.name || '',
-            category_names: category ? [category.name] : []
+            category_names: category ? [category.name] : [],
+            needs_ordering: data.should_order, // Flag to indicate if this item needs ordering
+            was_actually_counted: !product?.checkbox_only || data.should_order // Track if this was actually counted
           };
-        });
+        })
+        .filter(item => item.was_actually_counted); // Only include items that were actually counted
+
+      // Prepare items that need ordering (for email notification)
+      const itemsToOrder = allCountedItems.filter(item => item.needs_ordering);
 
       if (itemsToOrder.length === 0) {
         alert('No items need to be ordered.');
@@ -309,11 +317,13 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
         throw orderError;
       }
 
-      // Create order items - store the actual counted quantity
-      const orderItems = itemsToOrder.map(item => ({
+      // Create order items - store ALL counted items (complete inventory record)
+      const orderItems = allCountedItems.map(item => ({
         order_id: orderData.id,
         product_id: item.product_id,
-        quantity: item.current_quantity // actual counted quantity
+        quantity: item.current_quantity, // actual counted quantity
+        needs_ordering: item.needs_ordering // flag indicating if this item needs to be ordered
+        // Note: was_actually_counted is not stored in DB, just used for filtering
       }));
 
       const { error: itemsError } = await supabase

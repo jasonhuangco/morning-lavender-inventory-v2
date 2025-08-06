@@ -2,6 +2,8 @@
 
 This guide will walk you through setting up your Supabase database and EmailJS email service for the Morning Lavender Inventory Management System.
 
+> **🎯 Quick Start:** Use `database-complete-setup.sql` for instant database setup with all features included!
+
 ## 📋 Prerequisites
 
 - Node.js 18+ installed
@@ -30,7 +32,20 @@ This guide will walk you through setting up your Supabase database and EmailJS e
 
 ### 3. Create Database Tables
 
-Run these SQL commands in the Supabase SQL Editor:
+Instead of running multiple SQL commands, use our comprehensive setup script:
+
+1. In Supabase, go to **SQL Editor**
+2. Copy the entire contents of `database-complete-setup.sql`
+3. Paste into the SQL Editor and click **Run**
+
+This single script will:
+- Create all necessary tables with the latest schema
+- Add sample data (locations, categories, suppliers, products, users)
+- Set up proper indexes and relationships
+- Configure Row Level Security policies
+- Include all recent features (user roles, needs_ordering column, etc.)
+
+**Alternative Manual Setup:**
 
 ```sql
 -- Enable Row Level Security

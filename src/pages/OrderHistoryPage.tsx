@@ -13,15 +13,18 @@ export default function OrderHistoryPage() {
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [selectedYear, setSelectedYear] = useState<string>('all');
   const [reviewedItems, setReviewedItems] = useState<Record<string, Record<string, boolean>>>({});
+  const [showOnlyNeedsOrdering, setShowOnlyNeedsOrdering] = useState(false);
 
   const handleOrderSelect = (order: Order) => {
     setSelectedOrder(order);
     setSelectedSupplier('all'); // Reset filter when opening new order
+    setShowOnlyNeedsOrdering(false); // Reset toggle when opening new order
   };
 
   const handleCloseModal = () => {
     setSelectedOrder(null);
     setSelectedSupplier('all'); // Reset filter when closing modal
+    setShowOnlyNeedsOrdering(false); // Reset toggle when closing modal
   };
 
   const handleDeleteOrder = async (orderId: string, orderNumber: string) => {
@@ -185,8 +188,10 @@ export default function OrderHistoryPage() {
           current_quantity: item.quantity || 0, // Same as quantity_ordered - what was counted
           minimum_threshold: item.products?.minimum_threshold || 0,
           checkbox_only: item.products?.checkbox_only || false,
+          unit: item.products?.unit || '',
           supplier_name: item.products?.suppliers?.name || 'Unknown Supplier',
-          category_names: item.products?.categories?.name ? [item.products.categories.name] : []
+          category_names: item.products?.categories?.name ? [item.products.categories.name] : [],
+          needs_ordering: item.needs_ordering || false
         }))
       }));
 
@@ -211,7 +216,20 @@ export default function OrderHistoryPage() {
               checkbox_only: false,
               unit: 'lbs',
               supplier_name: 'Costco',
-              category_names: ['Coffee']
+              category_names: ['Coffee'],
+              needs_ordering: true // Below threshold, needs ordering
+            },
+            {
+              product_id: '2',
+              product_name: 'Paper Cups',
+              quantity_ordered: 250,
+              current_quantity: 250,
+              minimum_threshold: 100,
+              checkbox_only: false,
+              unit: 'units',
+              supplier_name: 'Restaurant Supply Co',
+              category_names: ['Supplies'],
+              needs_ordering: false // Above threshold, just counted
             },
             {
               product_id: '3',
@@ -222,7 +240,20 @@ export default function OrderHistoryPage() {
               checkbox_only: true,
               unit: 'units',
               supplier_name: 'Costco',
-              category_names: ['Cleaning']
+              category_names: ['Cleaning'],
+              needs_ordering: true // Checkbox item, needs ordering
+            },
+            {
+              product_id: '4',
+              product_name: 'Vanilla Syrup',
+              quantity_ordered: 8,
+              current_quantity: 8,
+              minimum_threshold: 3,
+              checkbox_only: false,
+              unit: 'bottles',
+              supplier_name: 'Beverage Distributor',
+              category_names: ['Beverages'],
+              needs_ordering: false // Above threshold, just counted
             }
           ],
           status: 'submitted',
@@ -453,12 +484,34 @@ export default function OrderHistoryPage() {
               {/* Items */}
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-medium text-gray-900">Items to Order</h3>
+                  <div>
+                    <h3 className="font-medium text-gray-900">Inventory Count Details</h3>
+                    <div className="flex items-center space-x-4 mt-1 text-sm text-gray-600">
+                      {(() => {
+                        // Calculate counts for actually counted items only
+                        const countedItems = selectedOrder.items.filter(item => !item.checkbox_only || item.needs_ordering);
+                        const needsOrderingCount = countedItems.filter(item => item.needs_ordering).length;
+                        const adequateStockCount = countedItems.filter(item => !item.needs_ordering).length;
+                        
+                        return (
+                          <>
+                            <span>{countedItems.length} items counted</span>
+                            <span className="text-red-600">{needsOrderingCount} need ordering</span>
+                            <span className="text-green-600">{adequateStockCount} adequate stock</span>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
                   
                   {/* Review Progress and Clear Button */}
                   <div className="flex items-center space-x-4">
                     <div className="text-sm text-gray-600">
-                      {selectedOrder.items.filter((item) => isItemReviewed(selectedOrder.id, item.product_id)).length} of {selectedOrder.items.length} reviewed
+                      {(() => {
+                        const countedItems = selectedOrder.items.filter(item => !item.checkbox_only || item.needs_ordering);
+                        const reviewedCount = countedItems.filter((item) => isItemReviewed(selectedOrder.id, item.product_id)).length;
+                        return `${reviewedCount} of ${countedItems.length} reviewed`;
+                      })()}
                     </div>
                     <button
                       onClick={() => {
@@ -490,16 +543,46 @@ export default function OrderHistoryPage() {
                       className="text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="all">All Suppliers</option>
-                      {Array.from(new Set(selectedOrder.items.map(item => item.supplier_name))).map(supplier => (
+                      {Array.from(new Set(
+                        selectedOrder.items
+                          .filter(item => !item.checkbox_only || item.needs_ordering) // Only actually counted items
+                          .map(item => item.supplier_name)
+                      )).map(supplier => (
                         <option key={supplier} value={supplier}>{supplier}</option>
                       ))}
                     </select>
+                  </div>
+                  
+                  {/* Toggle for showing only items that need ordering */}
+                  <div className="flex items-center space-x-2">
+                    <label className="flex items-center space-x-2 text-sm text-gray-600">
+                      <input
+                        type="checkbox"
+                        checked={showOnlyNeedsOrdering}
+                        onChange={(e) => setShowOnlyNeedsOrdering(e.target.checked)}
+                        className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                      />
+                      <span>Show only items needing orders</span>
+                    </label>
                   </div>
                 </div>
                 
                 <div className="space-y-3">
                   {selectedOrder.items
-                    .filter(item => selectedSupplier === 'all' || item.supplier_name === selectedSupplier)
+                    .filter(item => {
+                      // Filter by supplier
+                      const supplierMatch = selectedSupplier === 'all' || item.supplier_name === selectedSupplier;
+                      
+                      // Only show items that were actually counted:
+                      // 1. Non-checkbox items that have a counted quantity > 0
+                      // 2. Checkbox-only items that were checked (needs_ordering = true)
+                      const wasActuallyCounted = !item.checkbox_only || item.needs_ordering;
+                      
+                      // Apply needs ordering filter if toggle is on
+                      const needsOrderingMatch = !showOnlyNeedsOrdering || item.needs_ordering;
+                      
+                      return supplierMatch && wasActuallyCounted && needsOrderingMatch;
+                    })
                     .map((item, index) => {
                     // For checkbox-only items, don't calculate difference since counted quantity doesn't apply
                     const difference = item.checkbox_only ? 0 : item.minimum_threshold - item.quantity_ordered;
@@ -521,9 +604,20 @@ export default function OrderHistoryPage() {
                           {/* Item Content */}
                           <div className="flex justify-between items-start flex-1">
                             <div className="flex-1">
-                              <h4 className={`font-medium ${isReviewed ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
-                                {item.product_name}
-                              </h4>
+                              <div className="flex items-center space-x-2">
+                                <h4 className={`font-medium ${isReviewed ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
+                                  {item.product_name}
+                                </h4>
+                                {item.needs_ordering ? (
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                    Needs Order
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    Counted
+                                  </span>
+                                )}
+                              </div>
                               <div className={`text-sm mt-1 ${isReviewed ? 'text-gray-400' : 'text-gray-600'}`}>
                                 <p>Supplier: {item.supplier_name}</p>
                                 <p>Categories: {item.category_names.join(', ')}</p>

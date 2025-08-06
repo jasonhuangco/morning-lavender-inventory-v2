@@ -66,6 +66,8 @@ export interface OrderItem {
   unit: string; // The unit of measurement for the product
   supplier_name: string;
   category_names: string[];
+  needs_ordering?: boolean; // Whether this item was flagged for ordering
+  was_actually_counted?: boolean; // Whether this item was actually counted (not just a checkbox-only item that wasn't checked)
 }
 
 export interface Order {
