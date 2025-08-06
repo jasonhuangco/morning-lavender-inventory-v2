@@ -40,18 +40,18 @@ export default function Layout({ children }: LayoutProps) {
             </div>
             <div className="flex items-center space-x-4">
               <div className="text-right">
-                <span className="text-sm text-gray-700">{getUserDisplayName()}</span>
-                {user && (
-                  <div className="text-xs text-gray-500">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-700">{getUserDisplayName()}</span>
+                  {user && (
+                    <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${
                       user.role === 'admin' 
                         ? 'bg-purple-100 text-purple-800' 
                         : 'bg-blue-100 text-blue-800'
                     }`}>
-                      {user.role === 'admin' ? 'Admin' : 'Staff'}
+                      {user.role === 'admin' ? 'A' : 'S'}
                     </span>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
               <button
                 onClick={signOut}
