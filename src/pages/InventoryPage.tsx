@@ -10,6 +10,7 @@ export default function InventoryPage() {
     products,
     locations,
     categories,
+    suppliers,
     currentLocation,
     userName,
     setCurrentLocation,
@@ -25,6 +26,8 @@ export default function InventoryPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderNote, setOrderNote] = useState('');
   const [showNoteModal, setShowNoteModal] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [noteModalReturnToReview, setNoteModalReturnToReview] = useState(false);
   const hasInitialized = useRef(false);
 
   // Initialize inventory data when products change
@@ -111,8 +114,16 @@ export default function InventoryPage() {
       return;
     }
 
+    // Open review modal instead of submitting directly
+    setShowReviewModal(true);
+  };
+
+  const handleConfirmSubmit = async () => {
+    if (!currentLocation || !userName) return;
+
     try {
       setIsSubmitting(true);
+      setShowReviewModal(false);
       
       // Convert shouldOrder to should_order for API
       const apiInventoryData: {[productId: string]: { quantity: number; should_order: boolean }} = {};
@@ -200,7 +211,10 @@ export default function InventoryPage() {
         {/* Add Note Link */}
         <div className="flex items-center justify-start">
           <button
-            onClick={() => setShowNoteModal(true)}
+            onClick={() => {
+              setNoteModalReturnToReview(false);
+              setShowNoteModal(true);
+            }}
             className="text-sm text-primary-600 hover:text-primary-700 flex items-center space-x-1"
           >
             <FileText className="h-4 w-4" />
@@ -288,7 +302,13 @@ export default function InventoryPage() {
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-gray-900">Add Order Note</h2>
                 <button
-                  onClick={() => setShowNoteModal(false)}
+                  onClick={() => {
+                    setShowNoteModal(false);
+                    if (noteModalReturnToReview) {
+                      setNoteModalReturnToReview(false);
+                      setShowReviewModal(true);
+                    }
+                  }}
                   className="text-gray-400 hover:text-gray-600"
                 >
                   <X className="h-5 w-5" />
@@ -315,7 +335,13 @@ export default function InventoryPage() {
               {/* Modal Actions */}
               <div className="flex space-x-3">
                 <button
-                  onClick={() => setShowNoteModal(false)}
+                  onClick={() => {
+                    setShowNoteModal(false);
+                    if (noteModalReturnToReview) {
+                      setNoteModalReturnToReview(false);
+                      setShowReviewModal(true);
+                    }
+                  }}
                   className="flex-1 bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
                 >
                   Done
@@ -324,10 +350,126 @@ export default function InventoryPage() {
                   onClick={() => {
                     setOrderNote('');
                     setShowNoteModal(false);
+                    if (noteModalReturnToReview) {
+                      setNoteModalReturnToReview(false);
+                      setShowReviewModal(true);
+                    }
                   }}
                   className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
                 >
                   Clear
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Order Review Modal */}
+      {showReviewModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900">Review Order</h2>
+                <button
+                  onClick={() => setShowReviewModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Order Summary */}
+              <div className="mb-6">
+                <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="font-medium text-gray-700">Location:</span>
+                      <span className="ml-2 text-gray-900">
+                        {locations.find(l => l.id === currentLocation)?.name || 'Unknown Location'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700">Submitted by:</span>
+                      <span className="ml-2 text-gray-900">{userName}</span>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700">Items to order:</span>
+                      <span className="ml-2 text-gray-900">{itemsToOrder}</span>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700">Date:</span>
+                      <span className="ml-2 text-gray-900">{new Date().toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-medium text-gray-700">Order Note:</span>
+                      <button
+                        onClick={() => {
+                          setShowReviewModal(false);
+                          setNoteModalReturnToReview(true);
+                          setShowNoteModal(true);
+                        }}
+                        className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                      >
+                        {orderNote ? 'Edit Note' : 'Add Note'}
+                      </button>
+                    </div>
+                    {orderNote ? (
+                      <p className="text-gray-900 text-sm bg-gray-50 p-2 rounded border">{orderNote}</p>
+                    ) : (
+                      <p className="text-gray-500 text-sm italic">No note added</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Items List */}
+                <div className="space-y-2">
+                  <h3 className="font-medium text-gray-900 mb-3">Items to Order:</h3>
+                  {Object.entries(inventoryData)
+                    .filter(([_, data]) => data.shouldOrder)
+                    .map(([productId, data]) => {
+                      const product = products.find(p => p.id === productId);
+                      if (!product) return null;
+                      
+                      return (
+                        <div key={productId} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                          <div className="flex-1">
+                            <div className="font-medium text-gray-900">{product.name}</div>
+                            <div className="text-sm text-gray-600">
+                              Current: {data.quantity} | Minimum: {product.minimum_threshold || 0}
+                              {(() => {
+                                const supplier = suppliers.find(s => s.id === product.supplier_id);
+                                return supplier ? ` | Supplier: ${supplier.name}` : '';
+                              })()}
+                            </div>
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            {product.checkbox_only ? 'Needed' : `Qty: ${data.quantity}`}
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+
+              {/* Modal Actions */}
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setShowReviewModal(false)}
+                  className="flex-1 px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                >
+                  Back to Edit
+                </button>
+                <button
+                  onClick={handleConfirmSubmit}
+                  disabled={isSubmitting}
+                  className="flex-1 bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? 'Submitting...' : 'Confirm & Submit Order'}
                 </button>
               </div>
             </div>
