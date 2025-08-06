@@ -209,6 +209,7 @@ export default function OrderHistoryPage() {
               current_quantity: 5,
               minimum_threshold: 10,
               checkbox_only: false,
+              unit: 'lbs',
               supplier_name: 'Costco',
               category_names: ['Coffee']
             },
@@ -219,6 +220,7 @@ export default function OrderHistoryPage() {
               current_quantity: 0,
               minimum_threshold: 1,
               checkbox_only: true,
+              unit: 'units',
               supplier_name: 'Costco',
               category_names: ['Cleaning']
             }
@@ -526,9 +528,9 @@ export default function OrderHistoryPage() {
                                 <p>Supplier: {item.supplier_name}</p>
                                 <p>Categories: {item.category_names.join(', ')}</p>
                                 {item.checkbox_only ? (
-                                  <p>Minimum: {item.minimum_threshold}</p>
+                                  <p>Minimum: {item.minimum_threshold} {item.unit}</p>
                                 ) : (
-                                  <p>Counted: {item.quantity_ordered} | Minimum: {item.minimum_threshold}</p>
+                                  <p>Counted: {item.quantity_ordered} {item.unit} | Minimum: {item.minimum_threshold} {item.unit}</p>
                                 )}
                               </div>
                             </div>

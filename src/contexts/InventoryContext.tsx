@@ -272,8 +272,11 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
           return {
             product_id: productId,
             product_name: product?.name || '',
+            quantity_ordered: data.quantity, // The counted quantity
             current_quantity: data.quantity,
             minimum_threshold: product?.minimum_threshold || 0,
+            checkbox_only: product?.checkbox_only || false,
+            unit: product?.unit || '',
             supplier_name: supplier?.name || '',
             category_names: category ? [category.name] : []
           };

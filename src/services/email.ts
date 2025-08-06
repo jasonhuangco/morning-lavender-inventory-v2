@@ -110,7 +110,7 @@ export const emailService = {
       // Create formatted list of items
       items_list: itemsToOrder.map(item => 
         `• ${item.name}${item.unit ? ` (${item.unit})` : ''}\n` +
-        `  Current: ${item.currentQuantity} | Minimum: ${item.minimumThreshold}\n` +
+        `  Current: ${item.currentQuantity} ${item.unit} | Minimum: ${item.minimumThreshold} ${item.unit}\n` +
         `  Supplier: ${item.supplier}\n` +
         `  Categories: ${item.categories}\n`
       ).join('\n'),

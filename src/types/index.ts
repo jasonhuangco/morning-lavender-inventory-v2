@@ -63,6 +63,7 @@ export interface OrderItem {
   current_quantity: number; // Same as quantity_ordered - the counted quantity  
   minimum_threshold: number;
   checkbox_only: boolean; // Whether this item is checkbox-only
+  unit: string; // The unit of measurement for the product
   supplier_name: string;
   category_names: string[];
 }

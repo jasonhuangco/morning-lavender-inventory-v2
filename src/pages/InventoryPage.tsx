@@ -440,7 +440,7 @@ export default function InventoryPage() {
                           <div className="flex-1">
                             <div className="font-medium text-gray-900">{product.name}</div>
                             <div className="text-sm text-gray-600">
-                              Current: {data.quantity} | Minimum: {product.minimum_threshold || 0}
+                              Current: {data.quantity} {product.unit} | Minimum: {product.minimum_threshold || 0} {product.unit}
                               {(() => {
                                 const supplier = suppliers.find(s => s.id === product.supplier_id);
                                 return supplier ? ` | Supplier: ${supplier.name}` : '';

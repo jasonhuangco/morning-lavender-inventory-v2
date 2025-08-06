@@ -119,13 +119,13 @@ export default function ProductCard({
         <div className="flex items-center space-x-6">
           <div>
             <span className="text-sm text-gray-600">Minimum: </span>
-            <span className="font-semibold">{product.minimum_threshold}</span>
+            <span className="font-semibold">{product.minimum_threshold} {product.unit}</span>
           </div>
           {!isCheckboxOnly && (
             <div>
               <span className="text-sm text-gray-600">Current: </span>
               <span className={`font-semibold ${isBelowThreshold ? 'text-red-600' : 'text-gray-900'}`}>
-                {localQuantity}
+                {localQuantity} {product.unit}
               </span>
             </div>
           )}
