@@ -321,7 +321,9 @@ const UserManagement: React.FC = () => {
               No users found. Add your first user to get started.
             </div>
           ) : (
-            users.map((user) => (
+            users
+              .sort((a, b) => a.first_name.localeCompare(b.first_name))
+              .map((user) => (
               <div key={user.id} className="px-6 py-4 flex items-center justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-4">

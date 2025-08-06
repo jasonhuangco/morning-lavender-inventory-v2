@@ -42,22 +42,22 @@ export default function LoginPage() {
       <div className="max-w-md w-full space-y-8">
         <div>
           <div className="flex justify-center">
-            <div className="flex items-center justify-center h-16 w-16 rounded-full bg-primary-100">
+            <div className="flex items-center justify-center h-32 w-32 rounded-full bg-primary-100">
               <img 
                 src={appleTouchIcon} 
                 alt="Morning Lavender Logo" 
-                className="h-8 w-8"
+                className="h-16 w-16"
               />
             </div>
           </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900" style={{fontFamily: 'Georgia, serif'}}>
             Morning Lavender
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
             Inventory Management System
           </p>
           <p className="mt-4 text-center text-xs text-gray-500">
-            Enter your 6-digit login code to continue
+            Enter your 6-digit homebase code to continue
           </p>
         </div>
         
