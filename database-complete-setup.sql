@@ -11,7 +11,7 @@ DROP TABLE IF EXISTS categories CASCADE;
 DROP TABLE IF EXISTS locations CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 
--- Create users table with roles
+-- Create users table with roles and category access
 CREATE TABLE users (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   first_name TEXT NOT NULL,
@@ -20,6 +20,7 @@ CREATE TABLE users (
   email TEXT,
   role TEXT NOT NULL DEFAULT 'staff' CHECK (role IN ('admin', 'staff')),
   is_active BOOLEAN DEFAULT TRUE,
+  assigned_categories TEXT[], -- Array of category IDs this user can access (NULL = all categories)
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   CONSTRAINT login_code_format CHECK (login_code ~ '^[0-9]{6}$')
@@ -270,6 +271,7 @@ CREATE INDEX idx_orders_date ON orders(order_date);
 CREATE INDEX idx_order_items_order ON order_items(order_id);
 CREATE INDEX idx_order_items_product ON order_items(product_id);
 CREATE INDEX idx_users_login_code ON users(login_code);
+CREATE INDEX idx_users_assigned_categories ON users USING GIN (assigned_categories);
 
 -- Setup complete message
 DO $$

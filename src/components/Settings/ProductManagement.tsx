@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { useInventory } from '../../contexts/InventoryContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { Product } from '../../types';
 import { SortableList } from '../SortableList';
 
 export default function ProductManagement() {
   const { products, categories, suppliers, addProduct, updateProduct, deleteProduct, reorderProducts, bulkSortProducts } = useInventory();
+  const { user } = useAuth();
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [reorderMode, setReorderMode] = useState(false);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
@@ -232,8 +234,27 @@ export default function ProductManagement() {
     }
   };
 
-  // Filter products based on selected category, supplier, and search query
+  // Filter categories based on user access
+  const availableCategories = categories.filter(category => {
+    // If user has no restrictions, show all categories
+    if (!user || !user.assigned_categories || user.assigned_categories.length === 0) {
+      return true;
+    }
+    // Only show categories user has access to
+    return user.assigned_categories.includes(category.id);
+  });
+
+  // Filter products based on selected category, supplier, search query, and user access
   const filteredProducts = products.filter(product => {
+    // Filter by user's assigned categories (if user has restrictions)
+    if (user && user.assigned_categories && user.assigned_categories.length > 0) {
+      const hasAccessToCategory = product.category_id && 
+        user.assigned_categories.includes(product.category_id);
+      if (!hasAccessToCategory) {
+        return false;
+      }
+    }
+
     const categoryMatch = selectedCategoryFilter === 'all' || product.category_id === selectedCategoryFilter;
     const supplierMatch = selectedSupplierFilter === 'all' || product.supplier_id === selectedSupplierFilter;
     
@@ -328,7 +349,7 @@ export default function ProductManagement() {
                 required
               >
                 <option value="">Select a category</option>
-                {categories.map(category => (
+                {availableCategories.map(category => (
                   <option key={category.id} value={category.id}>
                     {category.name}
                   </option>
@@ -490,7 +511,7 @@ export default function ProductManagement() {
                     className="text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary-500 min-w-0 flex-1"
                   >
                     <option value="all">All Categories</option>
-                    {categories.map(category => (
+                    {availableCategories.map(category => (
                       <option key={category.id} value={category.id}>
                         {category.name}
                       </option>

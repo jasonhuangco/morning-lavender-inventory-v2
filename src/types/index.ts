@@ -6,6 +6,7 @@ export interface User {
   email?: string;
   role: 'admin' | 'staff';
   is_active: boolean;
+  assigned_categories?: string[]; // Array of category IDs this user can access
   created_at: string;
   updated_at: string;
 }

@@ -96,7 +96,7 @@ class CodeAuthService {
       // First try to authenticate with database
       const { data, error } = await this.supabase
         .from('users')
-        .select('*')
+        .select('*, assigned_categories')
         .eq('login_code', loginCode)
         .eq('is_active', true)
         .single();
@@ -139,6 +139,7 @@ class CodeAuthService {
         login_code: data.login_code,
         email: data.email,
         role: role,
+        assigned_categories: data.assigned_categories,
         is_active: data.is_active,
         created_at: data.created_at,
         updated_at: data.updated_at

@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { Search, Filter, Send, FileText, X } from 'lucide-react';
 import { useInventory } from '../contexts/InventoryContext';
+import { useAuth } from '../contexts/AuthContext';
 import ProductCard from '../components/Inventory/ProductCard';
 import LocationSelector from '../components/Inventory/LocationSelector';
 import CategoryFilter from '../components/Inventory/CategoryFilter';
 
 export default function InventoryPage() {
+  const { user } = useAuth();
   const {
     products,
     locations,
@@ -49,11 +51,29 @@ export default function InventoryPage() {
     }
   }, [products]);
 
-  // Filter products based on search and categories
+  // Filter categories based on user access
+  const availableCategories = categories.filter(category => {
+    // If user has no restrictions, show all categories
+    if (!user || !user.assigned_categories || user.assigned_categories.length === 0) {
+      return true;
+    }
+    // Only show categories user has access to
+    return user.assigned_categories.includes(category.id);
+  });
+
   const filteredProducts = products.filter(product => {
     // Filter out hidden products from inventory view
     if (product.hidden) {
       return false;
+    }
+
+    // Filter by user's assigned categories (if user has restrictions)
+    if (user && user.assigned_categories && user.assigned_categories.length > 0) {
+      const hasAccessToCategory = product.category_id && 
+        user.assigned_categories.includes(product.category_id);
+      if (!hasAccessToCategory) {
+        return false;
+      }
     }
 
     // Filter by search term
@@ -259,7 +279,7 @@ export default function InventoryPage() {
             
             {showFilters && (
               <CategoryFilter
-                categories={categories}
+                categories={availableCategories}
                 selectedCategories={selectedCategories}
                 onCategoryChange={setSelectedCategories}
               />

@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { User } from '../types';
 import { useInventory } from '../contexts/InventoryContext';
+import { useAuth } from '../contexts/AuthContext';
 import { Plus, Edit2, Trash2, Eye, EyeOff, RefreshCw } from 'lucide-react';
 
 const UserManagement: React.FC = () => {
-  const { users, addUser, updateUser, deleteUser, generateLoginCode } = useInventory();
+  const { users, categories, addUser, updateUser, deleteUser, generateLoginCode } = useInventory();
+  const { refreshUser } = useAuth();
   const [isAddingUser, setIsAddingUser] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [showConfirmDelete, setShowConfirmDelete] = useState<string | null>(null);
@@ -18,7 +20,8 @@ const UserManagement: React.FC = () => {
     login_code: '',
     email: '',
     role: 'staff' as 'admin' | 'staff',
-    is_active: true
+    is_active: true,
+    assigned_categories: [] as string[]
   });
 
   const resetForm = () => {
@@ -28,7 +31,8 @@ const UserManagement: React.FC = () => {
       login_code: '',
       email: '',
       role: 'staff',
-      is_active: true
+      is_active: true,
+      assigned_categories: []
     });
     setIsAddingUser(false);
     setEditingUser(null);
@@ -43,7 +47,8 @@ const UserManagement: React.FC = () => {
       login_code: '',
       email: '',
       role: 'staff',
-      is_active: true
+      is_active: true,
+      assigned_categories: []
     });
   };
 
@@ -55,7 +60,8 @@ const UserManagement: React.FC = () => {
       login_code: user.login_code,
       email: user.email || '',
       role: user.role || 'staff', // Default to staff if role is not set
-      is_active: user.is_active
+      is_active: user.is_active,
+      assigned_categories: user.assigned_categories || []
     });
   };
 
@@ -108,8 +114,9 @@ const UserManagement: React.FC = () => {
 
     try {
       if (editingUser) {
-        // Check if we're changing the role
+        // Check if we're changing the role or assigned categories
         const isRoleChange = editingUser.role !== formData.role;
+        const isCategoryChange = JSON.stringify(editingUser.assigned_categories || []) !== JSON.stringify(formData.assigned_categories || []);
         const currentUserCode = JSON.parse(localStorage.getItem('inventory_user') || '{}').login_code;
         const isCurrentUser = editingUser.login_code === currentUserCode;
         
@@ -123,6 +130,12 @@ const UserManagement: React.FC = () => {
           } else {
             alert(`✅ User role updated to ${formData.role}. They will see changes on their next login.`);
           }
+        }
+        
+        // Refresh current user data if their categories were changed
+        if (isCategoryChange && isCurrentUser && !isRoleChange) {
+          await refreshUser();
+          alert(`✅ Your category access has been updated. Changes are now active.`);
         }
       } else {
         await addUser(formData);
@@ -247,6 +260,66 @@ const UserManagement: React.FC = () => {
               </select>
             </div>
 
+            {/* Category Access Control */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Category Access {formData.role === 'admin' ? '(Optional - Admins have full access by default)' : '*'}
+              </label>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 mb-2">
+                  <input
+                    type="checkbox"
+                    id="all-categories"
+                    checked={formData.assigned_categories.length === 0}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setFormData(prev => ({ ...prev, assigned_categories: [] }));
+                      }
+                    }}
+                    className="rounded"
+                  />
+                  <label htmlFor="all-categories" className="text-sm text-gray-700">
+                    Access to all categories {formData.role === 'admin' ? '(Default for admins)' : ''}
+                  </label>
+                </div>
+                
+                {formData.assigned_categories.length > 0 || formData.role === 'staff' ? (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 p-3 bg-gray-50 rounded-md max-h-40 overflow-y-auto">
+                    {categories.map(category => (
+                      <div key={category.id} className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id={`category-${category.id}`}
+                          checked={formData.assigned_categories.includes(category.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setFormData(prev => ({ 
+                                ...prev, 
+                                assigned_categories: [...prev.assigned_categories, category.id]
+                              }));
+                            } else {
+                              setFormData(prev => ({ 
+                                ...prev, 
+                                assigned_categories: prev.assigned_categories.filter(id => id !== category.id)
+                              }));
+                            }
+                          }}
+                          className="rounded"
+                        />
+                        <label htmlFor={`category-${category.id}`} className="text-sm text-gray-700">
+                          {category.name}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 italic">
+                    User will have access to all categories
+                  </p>
+                )}
+              </div>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 6-Digit Login Code *
@@ -338,6 +411,15 @@ const UserManagement: React.FC = () => {
                         Role: <span className={`font-medium ${(user.role || 'staff') === 'admin' ? 'text-purple-600' : 'text-blue-600'}`}>
                           {(user.role || 'staff') === 'admin' ? 'Admin' : 'Staff'}
                         </span>
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Categories: {
+                          !user.assigned_categories || user.assigned_categories.length === 0 
+                            ? 'All categories' 
+                            : user.assigned_categories
+                                .map(catId => categories.find(cat => cat.id === catId)?.name || 'Unknown')
+                                .join(', ')
+                        }
                       </p>
                     </div>
                     <div className="flex items-center gap-2">

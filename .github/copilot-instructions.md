@@ -24,6 +24,7 @@ This is a mobile-first inventory management web application for a café chain wi
 3. **Settings Management**: Manage locations, categories, suppliers, and products
 4. **Order History**: View past orders and drafts
 5. **Email Notifications**: Send order summaries via EmailJS
+6. **Category-based User Access**: Restrict users to specific product categories
 
 ## Design Principles
 - Large, touch-friendly buttons for mobile use
@@ -36,6 +37,7 @@ This is a mobile-first inventory management web application for a café chain wi
 - Restricted to @morninglavender.com email domain
 - Google OAuth 2.0 integration (pending setup)
 - Session management via localStorage (temporary)
+- Category-based access control for restricting users to specific product categories
 
 ## Integration Points
 - **Supabase**: All data persistence (products, locations, orders, etc.)
