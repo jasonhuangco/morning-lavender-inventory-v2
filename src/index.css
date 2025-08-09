@@ -146,7 +146,6 @@
   /* Custom primary color utilities with !important */
   .bg-primary-100 {
     background-color: var(--secondary-color) !important;
-    opacity: 0.3 !important;
   }
   
   .bg-primary-600 {
