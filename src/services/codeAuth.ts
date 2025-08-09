@@ -8,17 +8,6 @@ class CodeAuthService {
   // Mock users for fallback when database is not available
   private mockUsers: User[] = [
     {
-      id: '1',
-      first_name: 'Admin',
-      last_name: 'User',
-      login_code: '236868',
-      email: 'admin1@morninglavender.com',
-      role: 'admin',
-      is_active: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    },
-    {
       id: '2',
       first_name: 'Manager',
       last_name: 'Admin',
@@ -35,28 +24,6 @@ class CodeAuthService {
       last_name: 'Admin',
       login_code: '054673',
       email: 'admin3@morninglavender.com',
-      role: 'admin',
-      is_active: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    },
-    {
-      id: '4',
-      first_name: 'Test',
-      last_name: 'Admin',
-      login_code: '111111',
-      email: 'testadmin@morninglavender.com',
-      role: 'admin',
-      is_active: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    },
-    {
-      id: '5',
-      first_name: 'Demo',
-      last_name: 'Admin',
-      login_code: '999999',
-      email: 'demoadmin@morninglavender.com',
       role: 'admin',
       is_active: true,
       created_at: new Date().toISOString(),

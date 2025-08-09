@@ -8,6 +8,7 @@ import AnalyticsPage from './pages/AnalyticsPage';
 import EmailTestPage from './pages/EmailTestPage';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { InventoryProvider } from './contexts/InventoryContext';
+import { BrandingProvider } from './contexts/BrandingContext';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -51,15 +52,16 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 function App() {
   return (
     <div className="tablet-mobile">
-      <AuthProvider>
-        <InventoryProvider>
-          <Router>
-            <Routes>
-              <Route path="/login" element={
-                <PublicRoute>
-                  <LoginPage />
-                </PublicRoute>
-              } />
+      <BrandingProvider>
+        <AuthProvider>
+          <InventoryProvider>
+            <Router>
+              <Routes>
+                <Route path="/login" element={
+                  <PublicRoute>
+                    <LoginPage />
+                  </PublicRoute>
+                } />
               <Route path="/*" element={
                 <PrivateRoute>
                   <Layout>
@@ -90,6 +92,7 @@ function App() {
           </Router>
         </InventoryProvider>
       </AuthProvider>
+    </BrandingProvider>
     </div>
   );
 }

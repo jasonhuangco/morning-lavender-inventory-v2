@@ -8,11 +8,8 @@
 // DEPRECATED: These arrays are no longer used for role determination
 // Database roles take precedence over these hardcoded values
 export const ADMIN_CODES = [
-  '236868', // Original admin code (now database-controlled)
   '622366', // Original admin code (now database-controlled)
   '054673', // Original admin code (now database-controlled)
-  '111111', // Test admin code
-  '999999'  // Demo admin code
 ];
 
 export const STAFF_CODES = [

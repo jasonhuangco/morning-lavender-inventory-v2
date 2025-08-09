@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Package, ClipboardList, Settings, LogOut, BarChart3 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useBranding } from '../../contexts/BrandingContext';
 
 interface LayoutProps {
   children: ReactNode;
@@ -10,6 +11,7 @@ interface LayoutProps {
 export default function Layout({ children }: LayoutProps) {
   const location = useLocation();
   const { signOut, getUserDisplayName, hasAccess, user } = useAuth();
+  const { branding } = useBranding();
 
   const allNavigation = [
     { name: 'Inventory', href: '/inventory', icon: Package, requiresAccess: null },
@@ -35,7 +37,7 @@ export default function Layout({ children }: LayoutProps) {
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <h1 className="text-xl font-semibold text-gray-900">
-                Morning Lavender Inventory
+                {branding?.company_name ? `${branding.company_name} Inventory` : 'Morning Lavender Inventory'}
               </h1>
             </div>
             <div className="flex items-center space-x-4">

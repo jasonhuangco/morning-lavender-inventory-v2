@@ -11,6 +11,20 @@ export interface User {
   updated_at: string;
 }
 
+export interface BrandingSettings {
+  id: string;
+  company_name: string;
+  logo_url?: string;
+  icon_url?: string;
+  primary_color: string;
+  secondary_color: string;
+  accent_color: string;
+  text_color: string;
+  background_color: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Location {
   id: string;
   name: string;

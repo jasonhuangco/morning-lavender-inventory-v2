@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Lock } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useBranding } from '../contexts/BrandingContext';
 import appleTouchIcon from '/apple-touch-icon.png';
 
 export default function LoginPage() {
@@ -8,6 +9,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { signInWithCode } = useAuth();
+  const { branding } = useBranding();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,14 +46,14 @@ export default function LoginPage() {
           <div className="flex justify-center">
             <div className="flex items-center justify-center h-32 w-32 rounded-full bg-primary-100">
               <img 
-                src={appleTouchIcon} 
-                alt="Morning Lavender Logo" 
+                src={branding?.logo_url || appleTouchIcon} 
+                alt={`${branding?.company_name || 'Morning Lavender'} Logo`} 
                 className="h-16 w-16"
               />
             </div>
           </div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900" style={{fontFamily: 'Georgia, serif'}}>
-            Morning Lavender
+            {branding?.company_name || 'Morning Lavender'}
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
             Inventory Management System

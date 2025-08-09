@@ -10,6 +10,7 @@ A modern, mobile-first inventory management web application designed for café c
 - **Order History**: View past orders and drafts
 - **Email Notifications**: Send order summaries via EmailJS
 - **Category-based User Access**: Restrict users to specific product categories
+- **Dynamic Branding**: Customize company name, logo, colors, and app appearance
 - **Mobile-First Design**: Optimized for tablets and mobile devices
 
 ## 🛠️ Tech Stack
@@ -172,7 +173,6 @@ CREATE TABLE order_items (
 
 -- Insert default users (replace with your actual users)
 INSERT INTO users (first_name, last_name, login_code, email, role) VALUES 
-('Admin', 'User', '236868', 'admin@morninglavender.com', 'admin'),
 ('Staff', 'Member', '622366', 'staff@morninglavender.com', 'staff'),
 ('Manager', 'Lead', '998877', 'manager@morninglavender.com', 'admin');
 
@@ -307,8 +307,66 @@ BEGIN
         (SELECT COUNT(*) FROM categories),
         (SELECT COUNT(*) FROM suppliers),
         (SELECT COUNT(*) FROM products);
-    RAISE NOTICE '🔑 Default login codes: 236868 (admin), 622366 (staff), 998877 (admin)';
+    RAISE NOTICE '🔑 Default login codes: 622366 (staff), 998877 (admin)';
     RAISE NOTICE '⚠️  Remember to update RLS policies for production use!';
+END $$;
+
+-- ================================================
+-- BRANDING SETTINGS TABLE (OPTIONAL - v2.1 Feature)
+-- ================================================
+-- Run this additional script to enable dynamic branding features
+-- Allows customization of company name, logo, colors, etc.
+
+-- Create branding_settings table for storing company branding information
+CREATE TABLE IF NOT EXISTS public.branding_settings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    company_name TEXT NOT NULL DEFAULT 'Morning Lavender',
+    logo_url TEXT DEFAULT '',
+    icon_url TEXT DEFAULT '',
+    primary_color TEXT NOT NULL DEFAULT '#8B4513',
+    secondary_color TEXT NOT NULL DEFAULT '#E6E6FA',
+    accent_color TEXT NOT NULL DEFAULT '#DDA0DD',
+    text_color TEXT NOT NULL DEFAULT '#374151',
+    background_color TEXT NOT NULL DEFAULT '#F9FAFB',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Create trigger to automatically update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER update_branding_settings_updated_at 
+    BEFORE UPDATE ON branding_settings 
+    FOR EACH ROW 
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Insert default branding settings (let UUID be auto-generated)
+INSERT INTO public.branding_settings (company_name, logo_url, icon_url, primary_color, secondary_color, accent_color, text_color, background_color)
+VALUES ('Morning Lavender', '', '', '#8B4513', '#E6E6FA', '#DDA0DD', '#374151', '#F9FAFB');
+
+-- Enable Row Level Security (RLS)
+ALTER TABLE public.branding_settings ENABLE ROW LEVEL SECURITY;
+
+-- Create policy to allow all operations for authenticated users
+CREATE POLICY "Allow all operations for authenticated users" ON public.branding_settings
+    FOR ALL USING (true);
+
+-- Grant permissions
+GRANT ALL ON public.branding_settings TO authenticated;
+GRANT ALL ON public.branding_settings TO anon;
+
+-- Display branding setup completion
+DO $$
+BEGIN
+    RAISE NOTICE '🎨 Branding Settings Table Created Successfully!';
+    RAISE NOTICE '✨ Features enabled: Dynamic company branding, custom colors, logo support';
+    RAISE NOTICE '🛠️ Access via: Settings → Branding in the application';
 END $$;
 ```
 
@@ -388,9 +446,8 @@ npm run build
 ### 4. Default Login
 
 The system includes default admin users for initial setup:
-- Admin: `236868`
 - Manager: `622366`
-- Super Admin: `054673`
+- Super Admin: `998877`
 
 ## 📱 Usage
 
@@ -399,6 +456,16 @@ The system includes default admin users for initial setup:
 3. **Count inventory** by entering quantities or checking boxes
 4. **Submit orders** based on minimum thresholds
 5. **Manage settings** through the admin panel
+
+### 🎨 Branding Customization (Admin Feature)
+
+Access **Settings → Branding** to customize:
+- **Company Name**: Updates page title, login page, and app header
+- **Logo & Icon**: Upload custom branding images
+- **Color Scheme**: 5-color palette (primary, secondary, accent, text, background)
+- **Reset to Default**: Restore original Morning Lavender branding
+
+Changes apply immediately across the entire application.
 
 ## 🔐 User Access Control
 

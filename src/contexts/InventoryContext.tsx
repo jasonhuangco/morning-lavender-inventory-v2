@@ -182,17 +182,6 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
       // Set mock users so user management works even when database is unavailable
       const mockUsers = [
         {
-          id: '1',
-          first_name: 'Admin',
-          last_name: 'User',
-          login_code: '236868',
-          email: 'admin1@morninglavender.com',
-          role: 'admin' as const,
-          is_active: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        },
-        {
           id: '2',
           first_name: 'Manager',
           last_name: 'Admin',
