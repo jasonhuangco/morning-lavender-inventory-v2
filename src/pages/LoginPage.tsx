@@ -46,9 +46,9 @@ export default function LoginPage() {
           <div className="flex justify-center">
             <div className="flex items-center justify-center h-32 w-32 rounded-full bg-primary-100">
               <img 
-                src={branding?.logo_url || appleTouchIcon} 
-                alt={`${branding?.company_name || 'Morning Lavender'} Logo`} 
-                className="h-16 w-16"
+                src={branding?.icon_url || appleTouchIcon} 
+                alt={`${branding?.company_name || 'Morning Lavender'} Icon`} 
+                className="h-16 w-16 object-contain rounded-full"
               />
             </div>
           </div>

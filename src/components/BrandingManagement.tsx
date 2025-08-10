@@ -139,7 +139,7 @@ export function BrandingManagement() {
           <div className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Company Logo
+                Company Logo (Header)
               </label>
               <div className="flex items-center space-x-4">
                 <div className="w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50">
@@ -164,7 +164,7 @@ export function BrandingManagement() {
                     <Upload className="w-4 h-4" />
                     <span>Upload Logo</span>
                   </label>
-                  <p className="text-xs text-gray-500 mt-1">Recommended: 200x200px, PNG or JPG</p>
+                  <p className="text-xs text-gray-500 mt-1">Used in app header. Recommended: 200x200px, PNG or JPG</p>
                 </div>
               </div>
               <div className="mt-2">
@@ -173,14 +173,14 @@ export function BrandingManagement() {
                   value={formData.logo_url}
                   onChange={(e) => handleInputChange('logo_url', e.target.value)}
                   className="w-full p-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500"
-                  placeholder="Or paste image URL"
+                  placeholder="Or paste logo image URL"
                 />
               </div>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Favicon/Icon
+                Icon/Favicon (Login & Browser)
               </label>
               <div className="flex items-center space-x-4">
                 <div className="w-16 h-16 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50">
@@ -205,7 +205,7 @@ export function BrandingManagement() {
                     <Upload className="w-4 h-4" />
                     <span>Upload Icon</span>
                   </label>
-                  <p className="text-xs text-gray-500 mt-1">Recommended: 32x32px or 16x16px, ICO or PNG</p>
+                  <p className="text-xs text-gray-500 mt-1">Used on login page and browser favicon. Recommended: 64x64px, ICO or PNG</p>
                 </div>
               </div>
               <div className="mt-2">
@@ -214,7 +214,7 @@ export function BrandingManagement() {
                   value={formData.icon_url}
                   onChange={(e) => handleInputChange('icon_url', e.target.value)}
                   className="w-full p-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500"
-                  placeholder="Or paste icon URL"
+                  placeholder="Or paste icon image URL"
                 />
               </div>
             </div>

@@ -35,10 +35,23 @@ export default function Layout({ children }: LayoutProps) {
       <nav className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 md:ml-64 md:pl-8">
           <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <h1 className="text-xl font-semibold text-gray-900">
-                {branding?.company_name ? `${branding.company_name} Inventory` : 'Morning Lavender Inventory'}
-              </h1>
+            <div className="flex items-center space-x-3">
+              {branding?.logo_url ? (
+                <>
+                  <img 
+                    src={branding.logo_url} 
+                    alt={`${branding.company_name} Logo`}
+                    className="h-8 w-8 object-contain"
+                  />
+                  <h1 className="text-xl font-semibold text-gray-900">
+                    {branding.company_name} Inventory
+                  </h1>
+                </>
+              ) : (
+                <h1 className="text-xl font-semibold text-gray-900">
+                  {branding?.company_name ? `${branding.company_name} Inventory` : 'Morning Lavender Inventory'}
+                </h1>
+              )}
             </div>
             <div className="flex items-center space-x-4">
               <div className="text-right">
