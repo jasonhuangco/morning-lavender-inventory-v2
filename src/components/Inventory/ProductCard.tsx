@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { AlertTriangle } from 'lucide-react';
 import { Product, Category } from '../../types';
 
 interface ProductCardProps {
@@ -52,21 +51,23 @@ export default function ProductCard({
 
   return (
     <div className={`bg-white rounded-lg border p-4 ${isBelowThreshold && !isCheckboxOnly ? 'border-red-200 bg-red-50' : 'border-gray-200'}`}>
-      {/* Header Row: Product Name and Alert Triangle */}
-      <div className="flex items-start justify-between mb-1">
-        <h3 className="font-semibold text-gray-900 text-lg leading-tight">
-          {product.name}
-        </h3>
-        {isBelowThreshold && !isCheckboxOnly && (
-          <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0" />
-        )}
-      </div>
-
-      {/* Category Tag and Controls Row */}
+      {/* Header Row: Product Name, Category Tag, and Alert Triangle */}
       <div className="flex items-start justify-between mb-2">
-        {/* Category Tag */}
-        {productCategory && (
-          <div>
+        <div className="flex-1 min-w-0 pr-2">
+          <h3 className="font-semibold text-gray-900 text-lg leading-tight">
+            {product.name}
+          </h3>
+          {/* Description below product name if available */}
+          {product.description && (
+            <p className="text-sm text-gray-600 leading-tight mt-1">
+              {product.description}
+            </p>
+          )}
+        </div>
+        
+        <div className="flex items-start space-x-2">
+          {/* Category tag always in top-right when available */}
+          {productCategory && (
             <span
               className="inline-flex items-center px-2 py-1 rounded text-xs font-medium text-white"
               style={{
@@ -75,9 +76,12 @@ export default function ProductCard({
             >
               {productCategory.name}
             </span>
-          </div>
-        )}
+          )}
+        </div>
+      </div>
 
+      {/* Controls Row */}
+      <div className="flex items-start justify-end mb-2">
         {/* Right side: Quantity Controls */}
         <div className="flex flex-col items-end space-y-2">
           {/* Quantity Controls */}
