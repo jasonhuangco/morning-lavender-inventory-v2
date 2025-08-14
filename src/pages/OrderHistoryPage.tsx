@@ -187,10 +187,6 @@ export default function OrderHistoryPage() {
     }
   };
 
-  const isItemOrdered = (item: any) => {
-    return item.ordered_status || false;
-  };
-
   const loadOrders = async () => {
     try {
       setLoading(true);
