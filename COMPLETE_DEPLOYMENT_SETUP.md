@@ -37,7 +37,7 @@ This will automatically:
 - Add sample data (3 locations, 6 categories, 4 suppliers, 26+ products)
 - Create 3 sample users (2 admin, 1 staff)
 - Set up proper indexes and security policies
-- Include all latest features (roles, needs_ordering, sorting, etc.)
+- Include all latest features (roles, needs_ordering, sorting, ordered status tracking, etc.)
 
 ### 3. Get Your Credentials
 

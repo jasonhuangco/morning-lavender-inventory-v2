@@ -87,13 +87,16 @@ CREATE TABLE orders (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create order_items table with needs_ordering column
+-- Create order_items table with needs_ordering and ordered status tracking
 CREATE TABLE order_items (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
   product_id UUID REFERENCES products(id),
   quantity INTEGER NOT NULL,
   needs_ordering BOOLEAN DEFAULT FALSE,
+  ordered_status BOOLEAN DEFAULT FALSE,
+  ordered_by TEXT,
+  ordered_at TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -270,6 +273,8 @@ CREATE INDEX idx_orders_location ON orders(location_id);
 CREATE INDEX idx_orders_date ON orders(order_date);
 CREATE INDEX idx_order_items_order ON order_items(order_id);
 CREATE INDEX idx_order_items_product ON order_items(product_id);
+CREATE INDEX idx_order_items_ordered_status ON order_items(ordered_status);
+CREATE INDEX idx_order_items_ordered_at ON order_items(ordered_at);
 CREATE INDEX idx_users_login_code ON users(login_code);
 CREATE INDEX idx_users_assigned_categories ON users USING GIN (assigned_categories);
 

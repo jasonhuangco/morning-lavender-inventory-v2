@@ -83,6 +83,9 @@ export interface OrderItem {
   category_names: string[];
   needs_ordering?: boolean; // Whether this item was flagged for ordering
   was_actually_counted?: boolean; // Whether this item was actually counted (not just a checkbox-only item that wasn't checked)
+  ordered_status?: boolean; // Whether this item has been marked as ordered/purchased
+  ordered_by?: string; // Who marked this item as ordered
+  ordered_at?: string; // When this item was marked as ordered
 }
 
 export interface Order {

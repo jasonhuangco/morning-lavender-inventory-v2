@@ -12,7 +12,6 @@ export default function OrderHistoryPage() {
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [selectedYear, setSelectedYear] = useState<string>('all');
-  const [reviewedItems, setReviewedItems] = useState<Record<string, Record<string, boolean>>>({});
   const [showOnlyNeedsOrdering, setShowOnlyNeedsOrdering] = useState(false);
 
   const handleOrderSelect = (order: Order) => {
@@ -105,40 +104,91 @@ export default function OrderHistoryPage() {
 
   useEffect(() => {
     loadOrders();
-    loadReviewedItems();
   }, []);
 
-  const loadReviewedItems = () => {
-    const stored = localStorage.getItem('orderHistoryReviewedItems');
-    if (stored) {
-      try {
-        setReviewedItems(JSON.parse(stored));
-      } catch (error) {
-        console.error('Error loading reviewed items from localStorage:', error);
+  const toggleItemOrdered = async (orderId: string, productId: string) => {
+    try {
+      const supabase = createClient(config.supabase.url, config.supabase.anonKey);
+      
+      // Find the current item
+      const currentOrder = orders.find(o => o.id === orderId);
+      const currentItem = currentOrder?.items.find(item => item.product_id === productId);
+      
+      if (!currentItem) {
+        console.error('Item not found');
+        return;
       }
+
+      const newOrderedStatus = !currentItem.ordered_status;
+      
+      // Get current user from localStorage (matching the format used elsewhere in the app)
+      const currentUser = JSON.parse(localStorage.getItem('inventory_user') || '{}');
+      const userName = currentUser.first_name && currentUser.last_name 
+        ? `${currentUser.first_name} ${currentUser.last_name}`
+        : 'Unknown User';
+      
+      // Update database
+      const { error } = await supabase
+        .from('order_items')
+        .update({
+          ordered_status: newOrderedStatus,
+          ordered_by: newOrderedStatus ? userName : null,
+          ordered_at: newOrderedStatus ? new Date().toISOString() : null
+        })
+        .eq('order_id', orderId)
+        .eq('product_id', productId);
+
+      if (error) {
+        console.error('Error updating ordered status:', error);
+        return;
+      }
+
+      // Update local state
+      setOrders(prevOrders => 
+        prevOrders.map(order => 
+          order.id === orderId 
+            ? {
+                ...order,
+                items: order.items.map(item =>
+                  item.product_id === productId
+                    ? {
+                        ...item,
+                        ordered_status: newOrderedStatus,
+                        ordered_by: newOrderedStatus ? userName : undefined,
+                        ordered_at: newOrderedStatus ? new Date().toISOString() : undefined
+                      }
+                    : item
+                )
+              }
+            : order
+        )
+      );
+
+      // Update selectedOrder if it's currently open
+      if (selectedOrder?.id === orderId) {
+        setSelectedOrder(prev => 
+          prev ? {
+            ...prev,
+            items: prev.items.map(item =>
+              item.product_id === productId
+                ? {
+                    ...item,
+                    ordered_status: newOrderedStatus,
+                    ordered_by: newOrderedStatus ? userName : undefined,
+                    ordered_at: newOrderedStatus ? new Date().toISOString() : undefined
+                  }
+                : item
+            )
+          } : null
+        );
+      }
+    } catch (error) {
+      console.error('Error toggling item ordered status:', error);
     }
   };
 
-  const saveReviewedItems = (items: Record<string, Record<string, boolean>>) => {
-    localStorage.setItem('orderHistoryReviewedItems', JSON.stringify(items));
-    setReviewedItems(items);
-  };
-
-  const toggleItemReviewed = (orderId: string, productId: string) => {
-    const itemKey = `${orderId}-${productId}`;
-    const newReviewedItems = { ...reviewedItems };
-    
-    if (!newReviewedItems[orderId]) {
-      newReviewedItems[orderId] = {};
-    }
-    
-    newReviewedItems[orderId][itemKey] = !newReviewedItems[orderId][itemKey];
-    saveReviewedItems(newReviewedItems);
-  };
-
-  const isItemReviewed = (orderId: string, productId: string) => {
-    const itemKey = `${orderId}-${productId}`;
-    return reviewedItems[orderId]?.[itemKey] || false;
+  const isItemOrdered = (item: any) => {
+    return item.ordered_status || false;
   };
 
   const loadOrders = async () => {
@@ -191,7 +241,10 @@ export default function OrderHistoryPage() {
           unit: item.products?.unit || '',
           supplier_name: item.products?.suppliers?.name || 'Unknown Supplier',
           category_names: item.products?.categories?.name ? [item.products.categories.name] : [],
-          needs_ordering: item.needs_ordering || false
+          needs_ordering: item.needs_ordering || false,
+          ordered_status: item.ordered_status || false,
+          ordered_by: item.ordered_by || undefined,
+          ordered_at: item.ordered_at || undefined
         }))
       }));
 
@@ -504,28 +557,67 @@ export default function OrderHistoryPage() {
                     </div>
                   </div>
                   
-                  {/* Review Progress and Clear Button */}
+                  {/* Order Progress and Clear Button */}
                   <div className="flex items-center space-x-4">
                     <div className="text-sm text-gray-600">
                       {(() => {
                         const countedItems = selectedOrder.items.filter(item => !item.checkbox_only || item.needs_ordering);
-                        const reviewedCount = countedItems.filter((item) => isItemReviewed(selectedOrder.id, item.product_id)).length;
-                        return `${reviewedCount} of ${countedItems.length} reviewed`;
+                        const orderedCount = countedItems.filter((item) => item.ordered_status).length;
+                        return `${orderedCount} of ${countedItems.length} ordered`;
                       })()}
                     </div>
                     <button
-                      onClick={() => {
-                        const newReviewedItems = { ...reviewedItems };
-                        if (!newReviewedItems[selectedOrder.id]) {
-                          newReviewedItems[selectedOrder.id] = {};
-                        }
-                        // Clear all reviewed items for this order
-                        Object.keys(newReviewedItems[selectedOrder.id]).forEach(key => {
-                          if (key.startsWith(selectedOrder.id)) {
-                            delete newReviewedItems[selectedOrder.id][key];
+                      onClick={async () => {
+                        // Clear all ordered status for this order
+                        try {
+                          const supabase = createClient(config.supabase.url, config.supabase.anonKey);
+                          
+                          const { error } = await supabase
+                            .from('order_items')
+                            .update({
+                              ordered_status: false,
+                              ordered_by: null,
+                              ordered_at: null
+                            })
+                            .eq('order_id', selectedOrder.id);
+
+                          if (error) {
+                            console.error('Error clearing ordered status:', error);
+                            return;
                           }
-                        });
-                        saveReviewedItems(newReviewedItems);
+
+                          // Update local state
+                          setOrders(prevOrders => 
+                            prevOrders.map(order => 
+                              order.id === selectedOrder.id 
+                                ? {
+                                    ...order,
+                                    items: order.items.map(item => ({
+                                      ...item,
+                                      ordered_status: false,
+                                      ordered_by: undefined,
+                                      ordered_at: undefined
+                                    }))
+                                  }
+                                : order
+                            )
+                          );
+
+                          // Update selectedOrder
+                          setSelectedOrder(prev => 
+                            prev ? {
+                              ...prev,
+                              items: prev.items.map(item => ({
+                                ...item,
+                                ordered_status: false,
+                                ordered_by: undefined,
+                                ordered_at: undefined
+                              }))
+                            } : null
+                          );
+                        } catch (error) {
+                          console.error('Error clearing ordered status:', error);
+                        }
                       }}
                       className="text-sm text-gray-500 hover:text-gray-700 underline"
                     >
@@ -586,18 +678,19 @@ export default function OrderHistoryPage() {
                     .map((item, index) => {
                     // For checkbox-only items, don't calculate difference since counted quantity doesn't apply
                     const difference = item.checkbox_only ? 0 : item.minimum_threshold - item.quantity_ordered;
-                    const isReviewed = isItemReviewed(selectedOrder.id, item.product_id);
+                    const isOrdered = item.ordered_status || false;
                     
                     return (
-                      <div key={index} className={`border border-gray-200 rounded-lg p-3 transition-all ${isReviewed ? 'bg-gray-50 opacity-60' : 'bg-white'}`}>
+                      <div key={index} className={`border border-gray-200 rounded-lg p-3 transition-all ${isOrdered ? 'bg-green-50 opacity-80' : 'bg-white'}`}>
                         <div className="flex items-start">
                           {/* Checkbox */}
                           <div className="flex-shrink-0 mr-3 mt-1">
                             <input
                               type="checkbox"
-                              checked={isReviewed}
-                              onChange={() => toggleItemReviewed(selectedOrder.id, item.product_id)}
-                              className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded cursor-pointer"
+                              checked={isOrdered}
+                              onChange={() => toggleItemOrdered(selectedOrder.id, item.product_id)}
+                              className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded cursor-pointer"
+                              title={isOrdered ? `Ordered by ${item.ordered_by} at ${item.ordered_at ? new Date(item.ordered_at).toLocaleString() : 'unknown time'}` : 'Mark as ordered'}
                             />
                           </div>
                           
@@ -605,7 +698,7 @@ export default function OrderHistoryPage() {
                           <div className="flex justify-between items-start flex-1">
                             <div className="flex-1">
                               <div className="flex items-center space-x-2">
-                                <h4 className={`font-medium ${isReviewed ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
+                                <h4 className={`font-medium ${isOrdered ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
                                   {item.product_name}
                                 </h4>
                                 {item.needs_ordering ? (
@@ -617,8 +710,13 @@ export default function OrderHistoryPage() {
                                     Counted
                                   </span>
                                 )}
+                                {isOrdered && (
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    Ordered
+                                  </span>
+                                )}
                               </div>
-                              <div className={`text-sm mt-1 ${isReviewed ? 'text-gray-400' : 'text-gray-600'}`}>
+                              <div className={`text-sm mt-1 ${isOrdered ? 'text-gray-400' : 'text-gray-600'}`}>
                                 <p>Supplier: {item.supplier_name}</p>
                                 <p>Categories: {item.category_names.join(', ')}</p>
                                 {item.checkbox_only ? (
@@ -626,11 +724,16 @@ export default function OrderHistoryPage() {
                                 ) : (
                                   <p>Counted: {item.quantity_ordered} {item.unit} | Minimum: {item.minimum_threshold} {item.unit}</p>
                                 )}
+                                {isOrdered && item.ordered_by && (
+                                  <p className="text-xs text-blue-600">
+                                    Ordered by {item.ordered_by} on {item.ordered_at ? new Date(item.ordered_at).toLocaleDateString() : 'unknown date'}
+                                  </p>
+                                )}
                               </div>
                             </div>
                             {!item.checkbox_only && (
                               <div className="flex flex-col items-end ml-4">
-                                <div className={`font-semibold ${isReviewed ? 'text-gray-400' : difference > 0 ? 'text-red-600' : difference < 0 ? 'text-green-600' : 'text-gray-900'}`}>
+                                <div className={`font-semibold ${isOrdered ? 'text-gray-400' : difference > 0 ? 'text-red-600' : difference < 0 ? 'text-green-600' : 'text-gray-900'}`}>
                                   {difference > 0 ? `Need ${difference}` : difference < 0 ? `Over by ${Math.abs(difference)}` : '0'}
                                 </div>
                               </div>
