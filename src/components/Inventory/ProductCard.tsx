@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Product, Category } from '../../types';
 
 interface ProductCardProps {
@@ -19,6 +19,11 @@ export default function ProductCard({
   onOrderToggle
 }: ProductCardProps) {
   const [localQuantity, setLocalQuantity] = useState(quantity);
+
+  // Update localQuantity when quantity prop changes (e.g., when draft loads)
+  useEffect(() => {
+    setLocalQuantity(quantity);
+  }, [quantity]);
 
   const productCategory = product.category_id ? 
     categories.find(c => c.id === product.category_id) : null;

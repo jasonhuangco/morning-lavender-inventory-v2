@@ -1,6 +1,7 @@
 -- Morning Lavender Inventory Management Database - COMPLETE SETUP
 -- Execute this in your Supabase SQL Editor for new deployments
 -- Last Updated: August 2025 - Includes all features and latest updates
+-- Features: Orders, Order Items, Products, Categories, Locations, Users, Draft Orders with JSONB storage
 
 -- Drop existing tables if they exist (for fresh deployments)
 DROP TABLE IF EXISTS order_items CASCADE;
@@ -98,6 +99,17 @@ CREATE TABLE order_items (
   ordered_by TEXT,
   ordered_at TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create draft_orders table for draft functionality
+CREATE TABLE draft_orders (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_name TEXT NOT NULL,
+  location_id UUID REFERENCES locations(id),
+  draft_data JSONB NOT NULL,
+  notes TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Insert sample users (replace with your actual users)
@@ -252,6 +264,7 @@ ALTER TABLE suppliers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE draft_orders ENABLE ROW LEVEL SECURITY;
 
 -- Create policies for development/testing (allow all operations)
 -- NOTE: In production, restrict these policies based on user authentication and roles
@@ -264,6 +277,7 @@ CREATE POLICY "Allow all operations" ON suppliers FOR ALL USING (true);
 CREATE POLICY "Allow all operations" ON products FOR ALL USING (true);
 CREATE POLICY "Allow all operations" ON orders FOR ALL USING (true);
 CREATE POLICY "Allow all operations" ON order_items FOR ALL USING (true);
+CREATE POLICY "Allow all operations" ON draft_orders FOR ALL USING (true);
 
 -- Create indexes for better performance
 CREATE INDEX idx_products_category ON products(category_id);
@@ -277,6 +291,8 @@ CREATE INDEX idx_order_items_ordered_status ON order_items(ordered_status);
 CREATE INDEX idx_order_items_ordered_at ON order_items(ordered_at);
 CREATE INDEX idx_users_login_code ON users(login_code);
 CREATE INDEX idx_users_assigned_categories ON users USING GIN (assigned_categories);
+CREATE INDEX idx_draft_orders_user_location ON draft_orders(user_name, location_id);
+CREATE INDEX idx_draft_orders_updated_at ON draft_orders(updated_at);
 
 -- Setup complete message
 DO $$
