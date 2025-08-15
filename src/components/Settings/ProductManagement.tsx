@@ -3,6 +3,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { useInventory } from '../../contexts/InventoryContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Product } from '../../types';
+import { getPrimaryCategory, getPrimarySupplier, getProductCategories, getProductSuppliers } from '../../utils/productHelpers';
 import { SortableList } from '../SortableList';
 
 export default function ProductManagement() {
@@ -22,20 +23,167 @@ export default function ProductManagement() {
     minimum_threshold: 1,
     checkbox_only: false,
     hidden: false,
+    categories: [] as Array<{ id: string; is_primary: boolean }>,
+    suppliers: [] as Array<{ id: string; is_primary: boolean; cost_override?: number }>,
+    // Keep old fields for backward compatibility
     category_id: '',
     supplier_id: ''
   });
 
+  // Helper function to create default form data
+  const getDefaultFormData = () => ({
+    name: '',
+    description: '',
+    unit: 'each',
+    cost: 0,
+    minimum_threshold: 1,
+    checkbox_only: false,
+    hidden: false,
+    categories: [] as Array<{ id: string; is_primary: boolean }>,
+    suppliers: [] as Array<{ id: string; is_primary: boolean; cost_override?: number }>,
+    category_id: '',
+    supplier_id: ''
+  });
+
+  // Helper function to create form data from product
+  const getFormDataFromProduct = (product: Product) => {
+    console.log('🔍 getFormDataFromProduct called with product:', {
+      id: product.id,
+      name: product.name,
+      has_product_categories: !!product.product_categories,
+      has_product_suppliers: !!product.product_suppliers,
+      product_categories_count: product.product_categories?.length || 0,
+      product_suppliers_count: product.product_suppliers?.length || 0,
+      legacy_category_id: product.category_id,
+      legacy_supplier_id: product.supplier_id
+    });
+
+    const productCategories = getProductCategories(product, categories);
+    const productSuppliers = getProductSuppliers(product, suppliers);
+    
+    console.log('🔍 Helper function results:', {
+      productCategories_count: productCategories.length,
+      productSuppliers_count: productSuppliers.length,
+      productSuppliers_details: productSuppliers.map(ps => ({
+        id: ps.supplier.id,
+        name: ps.supplier.name,
+        is_primary: ps.supplier.id === getPrimarySupplier(product, suppliers)?.id,
+        cost_override: ps.cost_override
+      }))
+    });
+
+    const formData = {
+      name: product.name,
+      description: product.description || '',
+      unit: product.unit,
+      cost: product.cost || 0,
+      minimum_threshold: product.minimum_threshold,
+      checkbox_only: product.checkbox_only || false,
+      hidden: product.hidden || false,
+      categories: productCategories.map(cat => ({ 
+        id: cat.id, 
+        is_primary: cat.id === getPrimaryCategory(product, categories)?.id 
+      })),
+      suppliers: productSuppliers.map(sup => ({ 
+        id: sup.supplier.id, 
+        is_primary: sup.supplier.id === getPrimarySupplier(product, suppliers)?.id,
+        cost_override: sup.cost_override
+      })),
+      category_id: getPrimaryCategory(product, categories)?.id || '',
+      supplier_id: getPrimarySupplier(product, suppliers)?.id || ''
+    };
+
+    console.log('🔍 Final formData suppliers:', formData.suppliers);
+    
+    return formData;
+  };
+
+  // Handler for adding/removing categories
+  const handleCategoryChange = (categoryId: string, checked: boolean) => {
+    if (checked) {
+      // Add category
+      const newCategories = [...formData.categories, { id: categoryId, is_primary: formData.categories.length === 0 }];
+      setFormData({ 
+        ...formData, 
+        categories: newCategories,
+        category_id: newCategories.find(c => c.is_primary)?.id || newCategories[0]?.id || ''
+      });
+    } else {
+      // Remove category
+      const newCategories = formData.categories.filter(c => c.id !== categoryId);
+      // If we removed the primary, make the first one primary
+      if (newCategories.length > 0 && !newCategories.find(c => c.is_primary)) {
+        newCategories[0].is_primary = true;
+      }
+      setFormData({ 
+        ...formData, 
+        categories: newCategories,
+        category_id: newCategories.find(c => c.is_primary)?.id || ''
+      });
+    }
+  };
+
+  // Handler for setting primary category
+  const handlePrimaryCategory = (categoryId: string) => {
+    const newCategories = formData.categories.map(c => ({
+      ...c,
+      is_primary: c.id === categoryId
+    }));
+    setFormData({ 
+      ...formData, 
+      categories: newCategories,
+      category_id: categoryId
+    });
+  };
+
+  // Handler for adding/removing suppliers
+  const handleSupplierChange = (supplierId: string, checked: boolean) => {
+    if (checked) {
+      // Add supplier
+      const newSuppliers = [...formData.suppliers, { id: supplierId, is_primary: formData.suppliers.length === 0 }];
+      setFormData({ 
+        ...formData, 
+        suppliers: newSuppliers,
+        supplier_id: newSuppliers.find(s => s.is_primary)?.id || newSuppliers[0]?.id || ''
+      });
+    } else {
+      // Remove supplier
+      const newSuppliers = formData.suppliers.filter(s => s.id !== supplierId);
+      // If we removed the primary, make the first one primary
+      if (newSuppliers.length > 0 && !newSuppliers.find(s => s.is_primary)) {
+        newSuppliers[0].is_primary = true;
+      }
+      setFormData({ 
+        ...formData, 
+        suppliers: newSuppliers,
+        supplier_id: newSuppliers.find(s => s.is_primary)?.id || ''
+      });
+    }
+  };
+
+  // Handler for setting primary supplier
+  const handlePrimarySupplier = (supplierId: string) => {
+    const newSuppliers = formData.suppliers.map(s => ({
+      ...s,
+      is_primary: s.id === supplierId
+    }));
+    setFormData({ 
+      ...formData, 
+      suppliers: newSuppliers,
+      supplier_id: supplierId
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.category_id) {
-      alert('Please select a category.');
+    if (formData.categories.length === 0) {
+      alert('Please select at least one category.');
       return;
     }
     
-    if (!formData.supplier_id) {
-      alert('Please select a supplier.');
+    if (formData.suppliers.length === 0) {
+      alert('Please select at least one supplier.');
       return;
     }
     
@@ -55,32 +203,12 @@ export default function ProductManagement() {
 
   const handleEdit = (product: Product) => {
     setEditingProduct(product);
-    setFormData({
-      name: product.name,
-      description: product.description || '',
-      unit: product.unit,
-      cost: product.cost || 0,
-      minimum_threshold: product.minimum_threshold,
-      checkbox_only: product.checkbox_only,
-      hidden: product.hidden || false,
-      category_id: product.category_id || '',
-      supplier_id: product.supplier_id || ''
-    });
+    setFormData(getFormDataFromProduct(product));
   };
 
   const resetForm = () => {
     setEditingProduct(null);
-    setFormData({
-      name: '',
-      description: '',
-      unit: 'each',
-      cost: 0,
-      minimum_threshold: 1,
-      checkbox_only: false,
-      hidden: false,
-      category_id: '',
-      supplier_id: ''
-    });
+    setFormData(getDefaultFormData());
   };
 
   const handleDelete = async (id: string) => {
@@ -95,17 +223,9 @@ export default function ProductManagement() {
   };
 
   const handleDuplicate = (product: Product) => {
-    setFormData({
-      name: `${product.name} (Copy)`,
-      description: product.description || '',
-      unit: product.unit,
-      cost: product.cost || 0,
-      minimum_threshold: product.minimum_threshold,
-      checkbox_only: product.checkbox_only,
-      hidden: product.hidden || false,
-      category_id: product.category_id || '',
-      supplier_id: product.supplier_id || ''
-    });
+    const duplicateData = getFormDataFromProduct(product);
+    duplicateData.name = `${product.name} (Copy)`;
+    setFormData(duplicateData);
     setEditingProduct(null); // Ensure we're in "add" mode
     
     // Scroll to form
@@ -340,40 +460,74 @@ export default function ProductManagement() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Category *
+                Categories * (Select multiple, first is primary)
               </label>
-              <select
-                value={formData.category_id}
-                onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
-                className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                required
-              >
-                <option value="">Select a category</option>
-                {availableCategories.map(category => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
+              <div className="border border-gray-300 rounded-md p-2 space-y-2 max-h-40 overflow-y-auto">
+                {availableCategories.map(category => {
+                  const isSelected = formData.categories.some(c => c.id === category.id);
+                  const isPrimary = formData.categories.find(c => c.id === category.id)?.is_primary;
+                  return (
+                    <div key={category.id} className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id={`category-${category.id}`}
+                        checked={isSelected}
+                        onChange={(e) => handleCategoryChange(category.id, e.target.checked)}
+                        className="rounded border-gray-300"
+                      />
+                      <label htmlFor={`category-${category.id}`} className="flex-1 text-sm">
+                        {category.name}
+                        {isPrimary && <span className="ml-1 text-blue-600 font-bold">(Primary)</span>}
+                      </label>
+                      {isSelected && !isPrimary && (
+                        <button
+                          type="button"
+                          onClick={() => handlePrimaryCategory(category.id)}
+                          className="text-xs text-blue-600 hover:text-blue-800"
+                        >
+                          Make Primary
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Supplier *
+                Suppliers * (Select multiple, first is primary)
               </label>
-              <select
-                value={formData.supplier_id}
-                onChange={(e) => setFormData({ ...formData, supplier_id: e.target.value })}
-                className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                required
-              >
-                <option value="">Select a supplier</option>
-                {suppliers.map(supplier => (
-                  <option key={supplier.id} value={supplier.id}>
-                    {supplier.name}
-                  </option>
-                ))}
-              </select>
+              <div className="border border-gray-300 rounded-md p-2 space-y-2 max-h-40 overflow-y-auto">
+                {suppliers.map(supplier => {
+                  const isSelected = formData.suppliers.some(s => s.id === supplier.id);
+                  const isPrimary = formData.suppliers.find(s => s.id === supplier.id)?.is_primary;
+                  return (
+                    <div key={supplier.id} className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id={`supplier-${supplier.id}`}
+                        checked={isSelected}
+                        onChange={(e) => handleSupplierChange(supplier.id, e.target.checked)}
+                        className="rounded border-gray-300"
+                      />
+                      <label htmlFor={`supplier-${supplier.id}`} className="flex-1 text-sm">
+                        {supplier.name}
+                        {isPrimary && <span className="ml-1 text-green-600 font-bold">(Primary)</span>}
+                      </label>
+                      {isSelected && !isPrimary && (
+                        <button
+                          type="button"
+                          onClick={() => handlePrimarySupplier(supplier.id)}
+                          className="text-xs text-green-600 hover:text-green-800"
+                        >
+                          Make Primary
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
           

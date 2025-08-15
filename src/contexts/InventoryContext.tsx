@@ -3,8 +3,10 @@ import { Product, Location, Category, Supplier, InventoryCount, User } from '../
 import { createClient } from '@supabase/supabase-js';
 import { config } from '../config/env';
 import { emailService } from '../services/email';
+import { supabaseService } from '../services/supabase';
 import { useAuth } from './AuthContext';
 import { getRoleForCode } from '../constants/roles';
+import { getPrimarySupplier, getProductSuppliers, getProductCategories } from '../utils/productHelpers';
 
 interface InventoryContextType {
   products: Product[];
@@ -94,29 +96,33 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
   const loadData = async () => {
     try {
       setLoading(true);
+      console.log('🚀 Starting data load...');
       
-      // Initialize Supabase client
       const supabase = createClient(config.supabase.url, config.supabase.anonKey);
+      if (!supabase) {
+        console.error('❌ No Supabase client available');
+        throw new Error('Database not configured');
+      }
       
       console.log('🔄 Loading data from Supabase...');
       
-      // Load all data in parallel
+      // Load all data using the service layer
       const [locationsResult, categoriesResult, suppliersResult, productsResult, usersResult] = await Promise.all([
         supabase.from('locations').select('*').order('sort_order'),
         supabase.from('categories').select('*').order('sort_order'),
         supabase.from('suppliers').select('*').order('sort_order'),
-        supabase
-          .from('products')
-          .select(`
-            *,
-            category:categories(id, name, color),
-            supplier:suppliers(id, name, contact_info)
-          `)
-          .order('sort_order'),
+        // Use service layer for products to handle the new structure
+        supabaseService.getProducts().then((data: any) => ({ data, error: null })).catch((error: any) => ({ data: null, error })),
         supabase.from('users').select('*').order('created_at', { ascending: false })
       ]);
 
-      // Check for errors
+      console.log('📊 Raw results:', {
+        locations: { count: locationsResult?.data?.length || 0, error: locationsResult.error },
+        categories: { count: categoriesResult?.data?.length || 0, error: categoriesResult.error },
+        suppliers: { count: suppliersResult?.data?.length || 0, error: suppliersResult.error },
+        products: { count: productsResult?.data?.length || 0, error: productsResult.error },
+        users: { count: usersResult?.data?.length || 0, error: usersResult.error }
+      });      // Check for errors
       if (locationsResult.error) {
         console.error('Error loading locations:', locationsResult.error);
         throw locationsResult.error;
@@ -257,24 +263,29 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
       const allCountedItems = Object.entries(inventoryCount.products)
         .map(([productId, data]) => {
           const product = products.find(p => p.id === productId);
-          const supplier = suppliers.find(s => s.id === product?.supplier_id);
-          const category = categories.find(c => c.id === product?.category_id);
+          if (!product) return null;
+
+          // Use helper functions to get suppliers and categories
+          const productSuppliers = getProductSuppliers(product, suppliers);
+          const productCategories = getProductCategories(product, categories);
+          const primarySupplier = getPrimarySupplier(product, suppliers);
           
           return {
             product_id: productId,
-            product_name: product?.name || '',
+            product_name: product.name || '',
             quantity_ordered: data.quantity, // The counted quantity
             current_quantity: data.quantity,
-            minimum_threshold: product?.minimum_threshold || 0,
-            checkbox_only: product?.checkbox_only || false,
-            unit: product?.unit || '',
-            supplier_name: supplier?.name || '',
-            category_names: category ? [category.name] : [],
+            minimum_threshold: product.minimum_threshold || 0,
+            checkbox_only: product.checkbox_only || false,
+            unit: product.unit || '',
+            supplier_name: primarySupplier?.name || 'Unknown Supplier',
+            all_suppliers: productSuppliers.map(ps => ps.supplier.name),
+            category_names: productCategories.map(cat => cat.name),
             needs_ordering: data.should_order, // Flag to indicate if this item needs ordering
-            was_actually_counted: !product?.checkbox_only || data.should_order // Track if this was actually counted
+            was_actually_counted: !product.checkbox_only || data.should_order // Track if this was actually counted
           };
         })
-        .filter(item => item.was_actually_counted); // Only include items that were actually counted
+        .filter(item => item !== null); // Remove null items
 
       // Prepare items that need ordering (for email notification)
       const itemsToOrder = allCountedItems.filter(item => item.needs_ordering);
@@ -289,17 +300,48 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
         ? `Order submitted by ${inventoryCount.user_name}\n\nNote: ${inventoryCount.notes}`
         : `Order submitted by ${inventoryCount.user_name}`;
 
-      const { data: orderData, error: orderError } = await supabase
-        .from('orders')
-        .insert([{
-          order_number: orderNumber,
-          location_id: inventoryCount.location_id,
-          status: 'pending',
-          notes: orderNotes,
-          order_date: new Date().toISOString()
-        }])
-        .select()
-        .single();
+      // Try to insert with user_name field first, fall back without it if column doesn't exist
+      let orderData;
+      let orderError;
+      
+      try {
+        const { data, error } = await supabase
+          .from('orders')
+          .insert([{
+            order_number: orderNumber,
+            location_id: inventoryCount.location_id,
+            status: 'pending', // New orders start as pending
+            notes: orderNotes,
+            user_name: inventoryCount.user_name, // Store user name as separate field
+            order_date: new Date().toISOString()
+          }])
+          .select()
+          .single();
+        
+        orderData = data;
+        orderError = error;
+      } catch (err: any) {
+        // If user_name column doesn't exist, try without it
+        if (err.message?.includes('user_name') || err.message?.includes('column')) {
+          console.warn('user_name column not found, inserting without it');
+          const { data, error } = await supabase
+            .from('orders')
+            .insert([{
+              order_number: orderNumber,
+              location_id: inventoryCount.location_id,
+              status: 'pending', // New orders start as pending
+              notes: orderNotes,
+              order_date: new Date().toISOString()
+            }])
+            .select()
+            .single();
+          
+          orderData = data;
+          orderError = error;
+        } else {
+          throw err;
+        }
+      }
 
       if (orderError) {
         console.error('Error creating order:', orderError);
@@ -363,11 +405,14 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
     const supabase = createClient(config.supabase.url, config.supabase.anonKey);
     
     try {
+      // Separate junction table data from product data
+      const { categories, suppliers, ...productData } = product as any;
+      
       // Get the highest sort_order value
       const maxSortOrder = products.length > 0 ? Math.max(...products.map(p => p.sort_order)) : -1;
       
       const productWithSort = {
-        ...product,
+        ...productData,
         sort_order: maxSortOrder + 1
       };
 
@@ -382,13 +427,45 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
         throw error;
       }
 
-      // Add to local state with mapped field
-      const newProduct = {
-        ...data,
-        is_checkbox_only: data.checkbox_only,
-        hidden: data.hidden || false
-      };
-      setProducts(prev => [...prev, newProduct]);
+      // Handle category relationships if provided
+      if (categories && Array.isArray(categories) && categories.length > 0) {
+        const categoryInserts = categories.map((cat: any) => ({
+          product_id: data.id,
+          category_id: cat.id,
+          is_primary: cat.is_primary || false
+        }));
+
+        const { error: categoryError } = await supabase
+          .from('product_categories')
+          .insert(categoryInserts);
+
+        if (categoryError) {
+          console.error('Error adding product categories:', categoryError);
+          throw categoryError;
+        }
+      }
+
+      // Handle supplier relationships if provided
+      if (suppliers && Array.isArray(suppliers) && suppliers.length > 0) {
+        const supplierInserts = suppliers.map((sup: any) => ({
+          product_id: data.id,
+          supplier_id: sup.id,
+          is_primary: sup.is_primary || false,
+          cost_override: sup.cost_override || null
+        }));
+
+        const { error: supplierError } = await supabase
+          .from('product_suppliers')
+          .insert(supplierInserts);
+
+        if (supplierError) {
+          console.error('Error adding product suppliers:', supplierError);
+          throw supplierError;
+        }
+      }
+
+      // Reload data to get updated relationships
+      await loadData();
       
       console.log('✅ Product added successfully:', data);
     } catch (error) {
@@ -401,36 +478,120 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
     const supabase = createClient(config.supabase.url, config.supabase.anonKey);
     
     try {
+      // Separate junction table data from product data
+      const { categories, suppliers, ...productUpdates } = updates as any;
+      
+      console.log('🔍 updateProduct called with:', {
+        id,
+        categories: categories?.length || 'undefined',
+        suppliers: suppliers?.length || 'undefined',
+        productUpdates: Object.keys(productUpdates)
+      });
+      
       // Map is_checkbox_only back to checkbox_only for database
-      const dbUpdates = { ...updates };
+      const dbUpdates = { ...productUpdates };
       if ('is_checkbox_only' in dbUpdates) {
         (dbUpdates as any).checkbox_only = dbUpdates.is_checkbox_only;
         delete (dbUpdates as any).is_checkbox_only;
       }
 
-      const { data, error } = await supabase
+      // Update the main product record
+      const { data: productData, error: productError } = await supabase
         .from('products')
         .update(dbUpdates)
         .eq('id', id)
         .select()
         .single();
 
-      if (error) {
-        console.error('Error updating product:', error);
-        throw error;
+      if (productError) {
+        console.error('Error updating product:', productError);
+        throw productError;
       }
 
-      // Update local state
-      const updatedProduct = {
-        ...data,
-        is_checkbox_only: data.checkbox_only,
-        hidden: data.hidden || false
-      };
-      setProducts(prev => prev.map(product => 
-        product.id === id ? updatedProduct : product
-      ));
+      console.log('✅ Product record updated:', productData);
+
+      // Handle category relationships if provided
+      if (categories && Array.isArray(categories)) {
+        console.log('🏷️ Updating categories:', categories);
+        
+        // Delete existing category relationships
+        const { error: deleteCatError } = await supabase
+          .from('product_categories')
+          .delete()
+          .eq('product_id', id);
+
+        if (deleteCatError) {
+          console.error('Error deleting existing categories:', deleteCatError);
+          throw deleteCatError;
+        }
+
+        // Insert new category relationships
+        if (categories.length > 0) {
+          const categoryInserts = categories.map((cat: any) => ({
+            product_id: id,
+            category_id: cat.id,
+            is_primary: cat.is_primary || false
+          }));
+
+          console.log('📝 Inserting categories:', categoryInserts);
+
+          const { error: categoryError } = await supabase
+            .from('product_categories')
+            .insert(categoryInserts);
+
+          if (categoryError) {
+            console.error('Error updating product categories:', categoryError);
+            throw categoryError;
+          }
+          
+          console.log('✅ Categories updated successfully');
+        }
+      }
+
+      // Handle supplier relationships if provided
+      if (suppliers && Array.isArray(suppliers)) {
+        console.log('🚚 Updating suppliers:', suppliers);
+        
+        // Delete existing supplier relationships
+        const { error: deleteSupError } = await supabase
+          .from('product_suppliers')
+          .delete()
+          .eq('product_id', id);
+
+        if (deleteSupError) {
+          console.error('Error deleting existing suppliers:', deleteSupError);
+          throw deleteSupError;
+        }
+
+        // Insert new supplier relationships
+        if (suppliers.length > 0) {
+          const supplierInserts = suppliers.map((sup: any) => ({
+            product_id: id,
+            supplier_id: sup.id,
+            is_primary: sup.is_primary || false,
+            cost_override: sup.cost_override || null
+          }));
+
+          console.log('📝 Inserting suppliers:', supplierInserts);
+
+          const { error: supplierError } = await supabase
+            .from('product_suppliers')
+            .insert(supplierInserts);
+
+          if (supplierError) {
+            console.error('Error updating product suppliers:', supplierError);
+            throw supplierError;
+          }
+          
+          console.log('✅ Suppliers updated successfully');
+        }
+      }
+
+      // Reload data to get updated relationships
+      console.log('🔄 Reloading data to refresh UI...');
+      await loadData();
       
-      console.log('✅ Product updated successfully:', data);
+      console.log('✅ Product updated successfully:', productData);
     } catch (error) {
       console.error('❌ Failed to update product:', error);
       throw error;

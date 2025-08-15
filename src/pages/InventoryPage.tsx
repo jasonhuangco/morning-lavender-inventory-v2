@@ -1,4 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
+import { 
+  userCanAccessProduct, 
+  productMatchesCategories, 
+  getPrimarySupplier,
+  getProductCategories 
+} from '../utils/productHelpers';
 import { Search, Filter, Send, FileText, X, Save } from 'lucide-react';
 import { useInventory } from '../contexts/InventoryContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -429,9 +435,7 @@ export default function InventoryPage() {
 
     // Filter by user's assigned categories (if user has restrictions)
     if (user && user.assigned_categories && user.assigned_categories.length > 0) {
-      const hasAccessToCategory = product.category_id && 
-        user.assigned_categories.includes(product.category_id);
-      if (!hasAccessToCategory) {
+      if (!userCanAccessProduct(product, user.assigned_categories)) {
         return false;
       }
     }
@@ -443,9 +447,7 @@ export default function InventoryPage() {
 
     // Filter by categories
     if (selectedCategories.length > 0) {
-      const hasMatchingCategory = product.category_id && 
-        selectedCategories.includes(product.category_id);
-      if (!hasMatchingCategory) {
+      if (!productMatchesCategories(product, selectedCategories)) {
         return false;
       }
     }
@@ -870,8 +872,19 @@ export default function InventoryPage() {
                             <div className="text-sm text-gray-600">
                               Current: {data.quantity} {product.unit} | Minimum: {product.minimum_threshold || 0} {product.unit}
                               {(() => {
-                                const supplier = suppliers.find(s => s.id === product.supplier_id);
+                                const supplier = getPrimarySupplier(product, suppliers);
                                 return supplier ? ` | Supplier: ${supplier.name}` : '';
+                              })()}
+                              {(() => {
+                                // Show all categories if multiple
+                                const productCategories = getProductCategories(product, categories);
+                                if (productCategories.length > 1) {
+                                  const categoryNames = productCategories
+                                    .map(cat => cat.name)
+                                    .join(', ');
+                                  return categoryNames ? ` | Categories: ${categoryNames}` : '';
+                                }
+                                return '';
                               })()}
                             </div>
                           </div>

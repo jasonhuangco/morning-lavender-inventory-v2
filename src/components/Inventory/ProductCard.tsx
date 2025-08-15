@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Product, Category } from '../../types';
+import { getPrimaryCategory, getProductCategories } from '../../utils/productHelpers';
 
 interface ProductCardProps {
   product: Product;
@@ -25,8 +26,10 @@ export default function ProductCard({
     setLocalQuantity(quantity);
   }, [quantity]);
 
-  const productCategory = product.category_id ? 
-    categories.find(c => c.id === product.category_id) : null;
+  const productCategory = getPrimaryCategory(product, categories);
+  
+  // Get all categories for this product
+  const productCategories = getProductCategories(product, categories);
 
   const isBelowThreshold = localQuantity < product.minimum_threshold;
   const isCheckboxOnly = product.checkbox_only;
@@ -71,16 +74,38 @@ export default function ProductCard({
         </div>
         
         <div className="flex items-start space-x-2">
-          {/* Category tag always in top-right when available */}
+          {/* Category tag - show primary category prominently, with indicator for multiple */}
           {productCategory && (
-            <span
-              className="inline-flex items-center px-2 py-1 rounded text-xs font-medium text-white"
-              style={{
-                backgroundColor: productCategory.color || '#6b7280'
-              }}
-            >
-              {productCategory.name}
-            </span>
+            <div className="flex flex-col items-end space-y-1">
+              <span
+                className="inline-flex items-center px-2 py-1 rounded text-xs font-medium text-white"
+                style={{
+                  backgroundColor: productCategory.color || '#6b7280'
+                }}
+              >
+                {productCategory.name}
+                {productCategories.length > 1 && (
+                  <span className="ml-1 text-xs opacity-75">+{productCategories.length - 1}</span>
+                )}
+              </span>
+              {/* Show additional categories as smaller tags if there are multiple */}
+              {productCategories.length > 1 && (
+                <div className="flex flex-wrap gap-1 max-w-32">
+                  {productCategories.slice(1, 3).map((cat: any, index: number) => (
+                    <span
+                      key={cat.id || index}
+                      className="inline-flex items-center px-1 py-0.5 rounded text-xs text-gray-600 bg-gray-100"
+                      title={cat.name}
+                    >
+                      {cat.name.length > 8 ? `${cat.name.slice(0, 8)}...` : cat.name}
+                    </span>
+                  ))}
+                  {productCategories.length > 3 && (
+                    <span className="text-xs text-gray-400">...</span>
+                  )}
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>

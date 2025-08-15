@@ -3,27 +3,37 @@ import { Clock, MapPin, User, Package, FileText, Trash2 } from 'lucide-react';
 import { Order } from '../types';
 import { createClient } from '@supabase/supabase-js';
 import { config } from '../config/env';
+import { getPrimarySupplier, getProductSuppliers, getProductCategories } from '../utils/productHelpers';
+
+// Create Supabase client outside component to avoid multiple instances warning
+const supabase = createClient(config.supabase.url, config.supabase.anonKey);
 
 export default function OrderHistoryPage() {
+  
   const [orders, setOrders] = useState<Order[]>([]);
+  // @ts-ignore - Used in transformation logic
+  const [categories, setCategories] = useState<any[]>([]);
+  // @ts-ignore - Used in transformation logic
+  const [suppliers, setSuppliers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [selectedSupplier, setSelectedSupplier] = useState<string>('all');
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [selectedYear, setSelectedYear] = useState<string>('all');
-  const [showOnlyNeedsOrdering, setShowOnlyNeedsOrdering] = useState(false);
+  const [showOnlyNeedsOrdering, setShowOnlyNeedsOrdering] = useState(true);
+  const [hideCompleted, setHideCompleted] = useState(false);
 
   const handleOrderSelect = (order: Order) => {
     setSelectedOrder(order);
     setSelectedSupplier('all'); // Reset filter when opening new order
-    setShowOnlyNeedsOrdering(false); // Reset toggle when opening new order
+    setShowOnlyNeedsOrdering(true); // Default to showing only items needing orders
   };
 
   const handleCloseModal = () => {
     setSelectedOrder(null);
     setSelectedSupplier('all'); // Reset filter when closing modal
-    setShowOnlyNeedsOrdering(false); // Reset toggle when closing modal
+    setShowOnlyNeedsOrdering(true); // Reset toggle to default state
   };
 
   const handleDeleteOrder = async (orderId: string, orderNumber: string) => {
@@ -34,8 +44,6 @@ export default function OrderHistoryPage() {
     if (!confirmed) return;
 
     try {
-      const supabase = createClient(config.supabase.url, config.supabase.anonKey);
-      
       // Delete the order (order_items will be automatically deleted due to CASCADE)
       const { error } = await supabase
         .from('orders')
@@ -98,24 +106,38 @@ export default function OrderHistoryPage() {
     const locationMatch = selectedLocation === 'all' || order.location_name === selectedLocation;
     const monthMatch = selectedMonth === 'all' || orderMonth === parseInt(selectedMonth);
     const yearMatch = selectedYear === 'all' || orderYear === parseInt(selectedYear);
+    const statusMatch = !hideCompleted || order.status !== 'completed';
 
-    return locationMatch && monthMatch && yearMatch;
+    return locationMatch && monthMatch && yearMatch && statusMatch;
   });
 
   useEffect(() => {
     loadOrders();
   }, []);
 
+  // Debug logging
+  useEffect(() => {
+    console.log('Orders loaded:', orders.length);
+  }, [orders]);
+
+  useEffect(() => {
+    if (selectedOrder) {
+      console.log('Selected order:', selectedOrder.status, selectedOrder.items?.length, 'items');
+    }
+  }, [selectedOrder]);
+
   const toggleItemOrdered = async (orderId: string, productId: string) => {
     try {
-      const supabase = createClient(config.supabase.url, config.supabase.anonKey);
+      // Find the current item from the selectedOrder (more reliable than orders array)
+      if (!selectedOrder || selectedOrder.id !== orderId) {
+        console.error('Selected order does not match the order being toggled');
+        return;
+      }
       
-      // Find the current item
-      const currentOrder = orders.find(o => o.id === orderId);
-      const currentItem = currentOrder?.items.find(item => item.product_id === productId);
+      const currentItem = selectedOrder.items.find(item => item.product_id === productId);
       
       if (!currentItem) {
-        console.error('Item not found');
+        console.error('Item not found in selected order');
         return;
       }
 
@@ -127,75 +149,187 @@ export default function OrderHistoryPage() {
         ? `${currentUser.first_name} ${currentUser.last_name}`
         : 'Unknown User';
       
-      // Update database
-      const { error } = await supabase
-        .from('order_items')
-        .update({
-          ordered_status: newOrderedStatus,
-          ordered_by: newOrderedStatus ? userName : null,
-          ordered_at: newOrderedStatus ? new Date().toISOString() : null
-        })
-        .eq('order_id', orderId)
-        .eq('product_id', productId);
+      // Update database (only if not using mock data)
+      if (selectedOrder && selectedOrder.id !== '1') { // '1' is our mock order ID
+        const { error } = await supabase
+          .from('order_items')
+          .update({
+            ordered_status: newOrderedStatus,
+            ordered_by: newOrderedStatus ? userName : null,
+            ordered_at: newOrderedStatus ? new Date().toISOString() : null
+          })
+          .eq('order_id', orderId)
+          .eq('product_id', productId);
 
-      if (error) {
-        console.error('Error updating ordered status:', error);
-        return;
+        if (error) {
+          console.error('Error updating ordered status:', error);
+          return;
+        }
+        
+        console.log('Database updated successfully');
+      } else {
+        console.log('Using mock data, skipping database update');
       }
 
-      // Update local state
+      // Update selectedOrder immediately since we're working with it
+      const updatedOrder = {
+        ...selectedOrder,
+        items: selectedOrder.items.map(item =>
+          item.product_id === productId
+            ? {
+                ...item,
+                ordered_status: newOrderedStatus,
+                ordered_by: newOrderedStatus ? userName : undefined,
+                ordered_at: newOrderedStatus ? new Date().toISOString() : undefined
+              }
+            : item
+        )
+      };
+      
+      setSelectedOrder(updatedOrder);
+      
+      // Also update the orders array for consistency
       setOrders(prevOrders => 
         prevOrders.map(order => 
           order.id === orderId 
-            ? {
-                ...order,
-                items: order.items.map(item =>
-                  item.product_id === productId
-                    ? {
-                        ...item,
-                        ordered_status: newOrderedStatus,
-                        ordered_by: newOrderedStatus ? userName : undefined,
-                        ordered_at: newOrderedStatus ? new Date().toISOString() : undefined
-                      }
-                    : item
-                )
-              }
+            ? updatedOrder
             : order
         )
       );
 
-      // Update selectedOrder if it's currently open
-      if (selectedOrder?.id === orderId) {
-        setSelectedOrder(prev => 
-          prev ? {
-            ...prev,
-            items: prev.items.map(item =>
-              item.product_id === productId
-                ? {
-                    ...item,
-                    ordered_status: newOrderedStatus,
-                    ordered_by: newOrderedStatus ? userName : undefined,
-                    ordered_at: newOrderedStatus ? new Date().toISOString() : undefined
-                  }
-                : item
-            )
-          } : null
-        );
-      }
+      // Check and update order status automatically
+      await checkAndUpdateOrderStatus(updatedOrder);
     } catch (error) {
       console.error('Error toggling item ordered status:', error);
+    }
+  };
+
+  const checkAndUpdateOrderStatus = async (order: Order) => {
+    if (!order.items) {
+      console.log('No items found in order for status check');
+      return;
+    }
+    
+    // Only count items that actually need ordering
+    const itemsThatNeedOrdering = order.items.filter(item => item.needs_ordering);
+    const orderedItemsCount = itemsThatNeedOrdering.filter(item => item.ordered_status).length;
+    const totalItemsNeedingOrdering = itemsThatNeedOrdering.length;
+    
+    // If we have any ordered items, set to draft (if currently pending)
+    if (orderedItemsCount > 0 && order.status === 'pending') {
+      console.log('Updating status to draft (in progress)');
+      await updateOrderStatus(order.id, 'draft', order);
+    }
+    
+    // If all items that need ordering are ordered, set to completed
+    else if (orderedItemsCount === totalItemsNeedingOrdering && totalItemsNeedingOrdering > 0 && order.status !== 'completed') {
+      console.log('Updating status to completed');
+      await updateOrderStatus(order.id, 'completed', order);
+    }
+    
+    // If no items are ordered, go back to pending
+    else if (orderedItemsCount === 0 && order.status !== 'pending') {
+      console.log('Updating status back to pending');
+      await updateOrderStatus(order.id, 'pending', order);
+    }
+  };
+
+  const updateOrderStatus = async (orderId: string, newStatus: 'draft' | 'pending' | 'completed', preserveItems?: Order) => {
+    try {
+      console.log(`Updating order ${orderId} status to ${newStatus}`);
+      
+      // Update order status in database (only if not using mock data)
+      if (orderId !== '1') { // '1' is our mock order ID
+        // First, check if the order exists
+        const { data: existingOrder, error: fetchError } = await supabase
+          .from('orders')
+          .select('id, status, order_number')
+          .eq('id', orderId)
+          .single();
+
+        if (fetchError) {
+          console.error('Error fetching order for status update:', fetchError);
+          console.error('Order ID that failed:', orderId);
+          return;
+        }
+
+        if (!existingOrder) {
+          console.error('Order not found in database:', orderId);
+          return;
+        }
+
+        console.log(`Found existing order: ${existingOrder.order_number}, current status: ${existingOrder.status}`);
+
+        // Update the order status
+        const { error } = await supabase
+          .from('orders')
+          .update({ 
+            status: newStatus,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', orderId);
+
+        if (error) {
+          console.error('Error updating order status:', error);
+          console.error('Attempted to set status to:', newStatus);
+          console.error('Order ID:', orderId);
+          console.error('Current status was:', existingOrder.status);
+          return;
+        }
+
+        console.log(`Database updated successfully for order ${orderId}`);
+      } else {
+        console.log('Using mock data, skipping database update');
+      }
+
+      // Update local state
+      setOrders(prev => prev.map(order => 
+        order.id === orderId 
+          ? { 
+              ...(preserveItems || order), 
+              status: newStatus, 
+              updated_at: new Date().toISOString() 
+            }
+          : order
+      ));
+
+      // Update selected order if it's the one being updated
+      if (selectedOrder && selectedOrder.id === orderId) {
+        console.log(`Updating selectedOrder status to ${newStatus}`);
+        const orderToUpdate = preserveItems || selectedOrder;
+        setSelectedOrder({
+          ...orderToUpdate,
+          status: newStatus,
+          updated_at: new Date().toISOString()
+        });
+      }
+
+      console.log(`Order ${orderId} status updated to ${newStatus}`);
+    } catch (error) {
+      console.error('Error updating order status:', error);
     }
   };
 
   const loadOrders = async () => {
     try {
       setLoading(true);
+      console.log('Loading orders from database...');
       
-      const supabase = createClient(config.supabase.url, config.supabase.anonKey);
+      // Load categories and suppliers for helper functions
+      const [categoriesResult, suppliersResult] = await Promise.all([
+        supabase.from('categories').select('*'),
+        supabase.from('suppliers').select('*')
+      ]);
+      
+      const categoriesData = categoriesResult.data || [];
+      const suppliersData = suppliersResult.data || [];
+      setCategories(categoriesData);
+      setSuppliers(suppliersData);
       
       // Fetch orders with related data
       const { data: ordersData, error } = await supabase
         .from('orders')
+        // Query with many-to-many relationships
         .select(`
           *,
           locations(name),
@@ -205,48 +339,164 @@ export default function OrderHistoryPage() {
               name,
               minimum_threshold,
               checkbox_only,
-              categories(name),
-              suppliers(name)
+              category_id,
+              supplier_id,
+              product_categories(
+                category_id,
+                is_primary,
+                categories(name)
+              ),
+              product_suppliers(
+                supplier_id,
+                is_primary,
+                cost_override,
+                suppliers(name)
+              )
             )
           )
         `)
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error loading orders:', error);
+        console.error('❌ Error loading orders:', error);
         throw error;
       }
 
+      console.log('✅ Orders loaded from database:', ordersData?.length || 0);
+      
+      // Debug: Check what order_items data looks like
+      if (ordersData && ordersData.length > 0) {
+        const firstOrder = ordersData[0];
+        const orderedItems = firstOrder.order_items?.filter((item: any) => item.ordered_status === true) || [];
+        console.log(`🔍 Raw DB data - First order has ${orderedItems.length} ordered items out of ${firstOrder.order_items?.length || 0} total`);
+        if (orderedItems.length > 0) {
+          console.log('🔍 Sample ordered item from DB:', {
+            product_id: orderedItems[0].product_id,
+            ordered_status: orderedItems[0].ordered_status,
+            ordered_by: orderedItems[0].ordered_by
+          });
+        }
+      }
+
       // Transform the data to match our Order interface
-      const transformedOrders: Order[] = (ordersData || []).map(order => ({
-        id: order.id,
-        user_name: order.notes?.replace('Order submitted by ', '') || 'Unknown User',
-        location_id: order.location_id,
-        location_name: order.locations?.name || 'Unknown Location',
-        status: order.status === 'pending' ? 'submitted' : order.status === 'draft' ? 'draft' : 'submitted',
-        created_at: order.created_at,
-        updated_at: order.updated_at,
-        notes: order.notes,
-        items: (order.order_items || []).map((item: any) => ({
-          product_id: item.product_id,
-          product_name: item.products?.name || 'Unknown Product',
-          quantity_ordered: item.quantity || 0, // This is the actual counted quantity
-          current_quantity: item.quantity || 0, // Same as quantity_ordered - what was counted
-          minimum_threshold: item.products?.minimum_threshold || 0,
-          checkbox_only: item.products?.checkbox_only || false,
-          unit: item.products?.unit || '',
-          supplier_name: item.products?.suppliers?.name || 'Unknown Supplier',
-          category_names: item.products?.categories?.name ? [item.products.categories.name] : [],
-          needs_ordering: item.needs_ordering || false,
-          ordered_status: item.ordered_status || false,
-          ordered_by: item.ordered_by || undefined,
-          ordered_at: item.ordered_at || undefined
-        }))
-      }));
+      // For each product with multiple suppliers, create separate line items
+      const transformedOrders = (ordersData || []).map((order: any) => {
+        // Extract user name from user_name field or fall back to parsing notes
+        let userName = order.user_name;
+        if (!userName && order.notes) {
+          const match = order.notes.match(/Order submitted by (.+?)(\n|$)/);
+          userName = match ? match[1] : 'Unknown User';
+        }
+        if (!userName) {
+          userName = 'Unknown User';
+        }
+
+        return {
+          id: order.id,
+          order_number: order.order_number,
+          location_id: order.location_id,
+          location_name: order.locations?.name || 'Unknown Location',
+          user_name: userName,
+          status: order.status,
+          created_at: order.created_at,
+          updated_at: order.updated_at || order.created_at,
+          order_date: order.order_date,
+          notes: order.notes,
+        items: (order.order_items || []).flatMap((item: any) => {
+          // Log raw item data for debugging
+          if (item.ordered_status) {
+            console.log(`🔍 Loading ordered item from DB: ${item.product_id} = ${item.ordered_status}`);
+          }
+          
+          const product = item.products;
+          if (!product) {
+            // Return single item if no product data
+            return [{
+              product_id: item.product_id,
+              product_name: 'Unknown Product',
+              quantity_ordered: item.quantity || 0,
+              current_quantity: item.quantity || 0,
+              minimum_threshold: 0,
+              checkbox_only: false,
+              unit: '',
+              supplier_name: 'Unknown Supplier',
+              category_names: [],
+              needs_ordering: item.needs_ordering || false,
+              ordered_status: item.ordered_status || false,
+              ordered_by: item.ordered_by || undefined,
+              ordered_at: item.ordered_at || undefined
+            }];
+          }
+
+          // Get all suppliers for this product
+          const productSuppliers = getProductSuppliers(product, suppliersData);
+          const productCategories = getProductCategories(product, categoriesData);
+          
+          // If product has multiple suppliers, create an entry for each
+          if (productSuppliers.length > 1) {
+            return productSuppliers.map(supRel => ({
+              product_id: item.product_id,
+              product_name: product.name || 'Unknown Product',
+              quantity_ordered: item.quantity || 0,
+              current_quantity: item.quantity || 0,
+              minimum_threshold: product.minimum_threshold || 0,
+              checkbox_only: product.checkbox_only || false,
+              unit: product.unit || '',
+              supplier_name: supRel.supplier.name,
+              supplier_is_primary: supRel.is_primary,
+              supplier_cost_override: supRel.cost_override,
+              category_names: productCategories.map(cat => cat.name),
+              needs_ordering: item.needs_ordering || false,
+              ordered_status: item.ordered_status || false,
+              ordered_by: item.ordered_by || undefined,
+              ordered_at: item.ordered_at || undefined
+            }));
+          } else {
+            // Single supplier or fallback to primary
+            const primarySupplier = getPrimarySupplier(product, suppliersData);
+            return [{
+              product_id: item.product_id,
+              product_name: product.name || 'Unknown Product',
+              quantity_ordered: item.quantity || 0,
+              current_quantity: item.quantity || 0,
+              minimum_threshold: product.minimum_threshold || 0,
+              checkbox_only: product.checkbox_only || false,
+              unit: product.unit || '',
+              supplier_name: primarySupplier?.name || 'Unknown Supplier',
+              supplier_is_primary: true,
+              category_names: productCategories.map(cat => cat.name),
+              needs_ordering: item.needs_ordering || false,
+              ordered_status: item.ordered_status || false,
+              ordered_by: item.ordered_by || undefined,
+              ordered_at: item.ordered_at || undefined
+            }];
+          }
+        })
+      };
+      });
 
       setOrders(transformedOrders);
+      
+      // Update selectedOrder if it exists and needs to be synced with the reloaded data
+      if (selectedOrder) {
+        const updatedSelectedOrder = transformedOrders.find(order => order.id === selectedOrder.id);
+        if (updatedSelectedOrder) {
+          console.log(`🔄 Syncing selectedOrder with reloaded data: ${updatedSelectedOrder.status}`);
+          setSelectedOrder(updatedSelectedOrder);
+        }
+      }
+      
+      console.log(`Orders loaded from database: ${transformedOrders.length}`);
+      
+      // Log sample order items to debug checkbox state
+      if (transformedOrders.length > 0) {
+        const sampleOrder = transformedOrders[0];
+        const orderedItems = sampleOrder.items.filter((item: any) => item.ordered_status === true);
+        console.log(`Sample order ${sampleOrder.id}: ${orderedItems.length} ordered items out of ${sampleOrder.items.length} total`);
+      }
     } catch (error) {
       console.error('Error loading orders:', error);
+      console.log('Falling back to mock data...');
       
       // Fall back to mock data if database fails
       const mockOrders: Order[] = [
@@ -266,7 +516,10 @@ export default function OrderHistoryPage() {
               unit: 'lbs',
               supplier_name: 'Costco',
               category_names: ['Coffee'],
-              needs_ordering: true // Below threshold, needs ordering
+              needs_ordering: true, // Below threshold, needs ordering
+              ordered_status: false,
+              ordered_by: undefined,
+              ordered_at: undefined
             },
             {
               product_id: '2',
@@ -278,7 +531,10 @@ export default function OrderHistoryPage() {
               unit: 'units',
               supplier_name: 'Restaurant Supply Co',
               category_names: ['Supplies'],
-              needs_ordering: false // Above threshold, just counted
+              needs_ordering: false, // Above threshold, just counted
+              ordered_status: false,
+              ordered_by: undefined,
+              ordered_at: undefined
             },
             {
               product_id: '3',
@@ -290,7 +546,10 @@ export default function OrderHistoryPage() {
               unit: 'units',
               supplier_name: 'Costco',
               category_names: ['Cleaning'],
-              needs_ordering: true // Checkbox item, needs ordering
+              needs_ordering: true, // Checkbox item, needs ordering
+              ordered_status: false,
+              ordered_by: undefined,
+              ordered_at: undefined
             },
             {
               product_id: '4',
@@ -302,16 +561,22 @@ export default function OrderHistoryPage() {
               unit: 'bottles',
               supplier_name: 'Beverage Distributor',
               category_names: ['Beverages'],
-              needs_ordering: false // Above threshold, just counted
+              needs_ordering: false, // Above threshold, just counted
+              ordered_status: false,
+              ordered_by: undefined,
+              ordered_at: undefined
             }
           ],
-          status: 'submitted',
+          status: 'pending',
           created_at: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
           updated_at: new Date(Date.now() - 86400000).toISOString()
         }
       ];
 
       setOrders(mockOrders);
+      console.log('✅ Mock data loaded:', mockOrders.length, 'orders');
+      console.log('🧪 First order status:', mockOrders[0]?.status);
+      console.log('🧪 First order items:', mockOrders[0]?.items.map(i => ({ id: i.product_id, ordered_status: i.ordered_status })));
     } finally {
       setLoading(false);
     }
@@ -325,12 +590,27 @@ export default function OrderHistoryPage() {
     });
   };
 
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return 'Pending';
+      case 'draft':
+        return 'In Progress';
+      case 'completed':
+        return 'Completed';
+      default:
+        return status.charAt(0).toUpperCase() + status.slice(1);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'submitted':
-        return 'bg-green-100 text-green-800';
-      case 'draft':
+      case 'pending':
         return 'bg-yellow-100 text-yellow-800';
+      case 'draft':
+        return 'bg-blue-100 text-blue-800';
+      case 'completed':
+        return 'bg-green-100 text-green-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -410,12 +690,27 @@ export default function OrderHistoryPage() {
                 setSelectedLocation('all');
                 setSelectedMonth('all');
                 setSelectedYear('all');
+                setHideCompleted(false);
               }}
               className="w-full px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               Clear Filters
             </button>
           </div>
+        </div>
+
+        {/* Hide Completed Checkbox */}
+        <div className="flex items-center space-x-2">
+          <input
+            type="checkbox"
+            id="hideCompleted"
+            checked={hideCompleted}
+            onChange={(e) => setHideCompleted(e.target.checked)}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          />
+          <label htmlFor="hideCompleted" className="text-sm font-medium text-gray-700 cursor-pointer">
+            Hide completed orders
+          </label>
         </div>
       </div>
 
@@ -432,7 +727,7 @@ export default function OrderHistoryPage() {
                 {/* Order Header */}
                 <div className="flex items-center space-x-4">
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
-                    {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                    {getStatusLabel(order.status)}
                   </span>
                   
                   <div className="flex items-center text-sm text-gray-500">
@@ -511,9 +806,26 @@ export default function OrderHistoryPage() {
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="font-medium text-gray-700">Status:</span>
-                    <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(selectedOrder.status)}`}>
-                      {selectedOrder.status.charAt(0).toUpperCase() + selectedOrder.status.slice(1)}
-                    </span>
+                    <select
+                      value={selectedOrder.status}
+                      onChange={(e) => {
+                        const newStatus = e.target.value as 'pending' | 'draft' | 'completed';
+                        updateOrderStatus(selectedOrder.id, newStatus);
+                      }}
+                      className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border-none bg-transparent focus:ring-2 focus:ring-primary-500"
+                      style={{
+                        backgroundColor: getStatusColor(selectedOrder.status).includes('green') ? '#F0FDF4' :
+                                       getStatusColor(selectedOrder.status).includes('yellow') ? '#FEFCE8' :
+                                       getStatusColor(selectedOrder.status).includes('blue') ? '#EFF6FF' : '#F9FAFB',
+                        color: getStatusColor(selectedOrder.status).includes('green') ? '#166534' :
+                               getStatusColor(selectedOrder.status).includes('yellow') ? '#A16207' :
+                               getStatusColor(selectedOrder.status).includes('blue') ? '#1E40AF' : '#374151'
+                      }}
+                    >
+                      <option value="pending">Pending</option>
+                      <option value="draft">In Progress</option>
+                      <option value="completed">Completed</option>
+                    </select>
                   </div>
                   <div>
                     <span className="font-medium text-gray-700">Date:</span>
@@ -566,8 +878,6 @@ export default function OrderHistoryPage() {
                       onClick={async () => {
                         // Clear all ordered status for this order
                         try {
-                          const supabase = createClient(config.supabase.url, config.supabase.anonKey);
-                          
                           const { error } = await supabase
                             .from('order_items')
                             .update({
@@ -671,20 +981,22 @@ export default function OrderHistoryPage() {
                       
                       return supplierMatch && wasActuallyCounted && needsOrderingMatch;
                     })
-                    .map((item, index) => {
+                    .map((item) => {
                     // For checkbox-only items, don't calculate difference since counted quantity doesn't apply
                     const difference = item.checkbox_only ? 0 : item.minimum_threshold - item.quantity_ordered;
-                    const isOrdered = item.ordered_status || false;
+                    const isOrdered = Boolean(item.ordered_status);
                     
                     return (
-                      <div key={index} className={`border border-gray-200 rounded-lg p-3 transition-all ${isOrdered ? 'bg-green-50 opacity-80' : 'bg-white'}`}>
+                      <div key={`${item.product_id}-${item.supplier_name}-${isOrdered}`} className={`border border-gray-200 rounded-lg p-3 transition-all ${isOrdered ? 'bg-green-50 opacity-80' : 'bg-white'}`}>
                         <div className="flex items-start">
                           {/* Checkbox */}
                           <div className="flex-shrink-0 mr-3 mt-1">
                             <input
                               type="checkbox"
                               checked={isOrdered}
-                              onChange={() => toggleItemOrdered(selectedOrder.id, item.product_id)}
+                              onChange={() => {
+                                toggleItemOrdered(selectedOrder.id, item.product_id);
+                              }}
                               className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded cursor-pointer"
                               title={isOrdered ? `Ordered by ${item.ordered_by} at ${item.ordered_at ? new Date(item.ordered_at).toLocaleString() : 'unknown time'}` : 'Mark as ordered'}
                             />

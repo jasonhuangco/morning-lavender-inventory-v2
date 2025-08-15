@@ -4,6 +4,8 @@
 -- Features: Orders, Order Items, Products, Categories, Locations, Users, Draft Orders with JSONB storage
 
 -- Drop existing tables if they exist (for fresh deployments)
+DROP TABLE IF EXISTS product_suppliers CASCADE;
+DROP TABLE IF EXISTS product_categories CASCADE;
 DROP TABLE IF EXISTS order_items CASCADE;
 DROP TABLE IF EXISTS orders CASCADE;
 DROP TABLE IF EXISTS products CASCADE;
@@ -11,6 +13,7 @@ DROP TABLE IF EXISTS suppliers CASCADE;
 DROP TABLE IF EXISTS categories CASCADE;
 DROP TABLE IF EXISTS locations CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS draft_orders CASCADE;
 
 -- Create users table with roles and category access
 CREATE TABLE users (
@@ -59,7 +62,7 @@ CREATE TABLE suppliers (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create products table with all latest fields
+-- Create products table with all latest fields (removed category_id and supplier_id for many-to-many)
 CREATE TABLE products (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL,
@@ -69,11 +72,30 @@ CREATE TABLE products (
   minimum_threshold INTEGER NOT NULL DEFAULT 1,
   checkbox_only BOOLEAN DEFAULT FALSE,
   hidden BOOLEAN DEFAULT FALSE,
-  category_id UUID REFERENCES categories(id),
-  supplier_id UUID REFERENCES suppliers(id),
   sort_order INTEGER DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create product_categories junction table for many-to-many relationship
+CREATE TABLE product_categories (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  category_id UUID NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+  is_primary BOOLEAN DEFAULT FALSE, -- Mark one category as primary for display
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(product_id, category_id)
+);
+
+-- Create product_suppliers junction table for many-to-many relationship
+CREATE TABLE product_suppliers (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  supplier_id UUID NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE,
+  is_primary BOOLEAN DEFAULT FALSE, -- Mark one supplier as primary for ordering
+  cost_override DECIMAL(10,2), -- Override cost for this specific supplier
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(product_id, supplier_id)
 );
 
 -- Create orders table
@@ -119,73 +141,26 @@ INSERT INTO users (first_name, last_name, login_code, email, role) VALUES
 ('Manager', 'Lead', '998877', 'manager@morninglavender.com', 'admin');
 
 -- Insert sample locations
-DO $$
-DECLARE
-    location1_id UUID;
-    location2_id UUID;
-    location3_id UUID;
-BEGIN
-    INSERT INTO locations (name, address, sort_order) VALUES 
-    ('Downtown Café', '123 Main Street, Downtown', 1),
-    ('University Branch', '456 College Ave, University District', 2),
-    ('Suburban Location', '789 Oak Road, Suburbs', 3)
-    RETURNING id INTO location1_id;
-    
-    -- Get location IDs for reference
-    SELECT id INTO location1_id FROM locations WHERE name = 'Downtown Café';
-    SELECT id INTO location2_id FROM locations WHERE name = 'University Branch';
-    SELECT id INTO location3_id FROM locations WHERE name = 'Suburban Location';
-END $$;
+INSERT INTO locations (name, address, sort_order) VALUES 
+('Downtown Café', '123 Main Street, Downtown', 1),
+('University Branch', '456 College Ave, University District', 2),
+('Suburban Location', '789 Oak Road, Suburbs', 3);
 
 -- Insert sample categories
-DO $$
-DECLARE
-    coffee_cat_id UUID;
-    dairy_cat_id UUID;
-    pastry_cat_id UUID;
-    syrup_cat_id UUID;
-    cup_cat_id UUID;
-    cleaning_cat_id UUID;
-BEGIN
-    INSERT INTO categories (name, color, sort_order) VALUES 
-    ('Coffee', '#8B4513', 1),
-    ('Dairy', '#FFFFFF', 2),
-    ('Pastries', '#FFD700', 3),
-    ('Syrups', '#FF6B6B', 4),
-    ('Cups & Lids', '#4ECDC4', 5),
-    ('Cleaning', '#95E1D3', 6)
-    RETURNING id INTO coffee_cat_id;
-    
-    -- Get category IDs for reference
-    SELECT id INTO coffee_cat_id FROM categories WHERE name = 'Coffee';
-    SELECT id INTO dairy_cat_id FROM categories WHERE name = 'Dairy';
-    SELECT id INTO pastry_cat_id FROM categories WHERE name = 'Pastries';
-    SELECT id INTO syrup_cat_id FROM categories WHERE name = 'Syrups';
-    SELECT id INTO cup_cat_id FROM categories WHERE name = 'Cups & Lids';
-    SELECT id INTO cleaning_cat_id FROM categories WHERE name = 'Cleaning';
-END $$;
+INSERT INTO categories (name, color, sort_order) VALUES 
+('Coffee', '#8B4513', 1),
+('Dairy', '#FFFFFF', 2),
+('Pastries', '#FFD700', 3),
+('Syrups', '#FF6B6B', 4),
+('Cups & Lids', '#4ECDC4', 5),
+('Cleaning', '#95E1D3', 6);
 
 -- Insert sample suppliers
-DO $$
-DECLARE
-    coffee_supplier_id UUID;
-    dairy_supplier_id UUID;
-    bakery_supplier_id UUID;
-    supplies_supplier_id UUID;
-BEGIN
-    INSERT INTO suppliers (name, contact_info, email, phone, sort_order) VALUES 
-    ('Premium Coffee Co', 'Main supplier for coffee beans', 'orders@premiumcoffee.com', '555-0101', 1),
-    ('Fresh Dairy Supply', 'Local dairy products', 'orders@freshdairy.com', '555-0102', 2),
-    ('Bakery Wholesale', 'Fresh baked goods daily', 'orders@bakerywhol.com', '555-0103', 3),
-    ('Restaurant Supplies Plus', 'Complete restaurant supplies', 'orders@restsupply.com', '555-0104', 4)
-    RETURNING id INTO coffee_supplier_id;
-    
-    -- Get supplier IDs for reference
-    SELECT id INTO coffee_supplier_id FROM suppliers WHERE name = 'Premium Coffee Co';
-    SELECT id INTO dairy_supplier_id FROM suppliers WHERE name = 'Fresh Dairy Supply';
-    SELECT id INTO bakery_supplier_id FROM suppliers WHERE name = 'Bakery Wholesale';
-    SELECT id INTO supplies_supplier_id FROM suppliers WHERE name = 'Restaurant Supplies Plus';
-END $$;
+INSERT INTO suppliers (name, contact_info, email, phone, sort_order) VALUES 
+('Premium Coffee Co', 'Main supplier for coffee beans', 'orders@premiumcoffee.com', '555-0101', 1),
+('Fresh Dairy Supply', 'Local dairy products', 'orders@freshdairy.com', '555-0102', 2),
+('Bakery Wholesale', 'Fresh baked goods daily', 'orders@bakerywhol.com', '555-0103', 3),
+('Restaurant Supplies Plus', 'Complete restaurant supplies', 'orders@restsupply.com', '555-0104', 4);
 
 -- Insert sample products with realistic Morning Lavender inventory
 DO $$
@@ -200,6 +175,7 @@ DECLARE
     dairy_supplier_id UUID;
     bakery_supplier_id UUID;
     supplies_supplier_id UUID;
+    product_id UUID;
 BEGIN
     -- Get category IDs
     SELECT id INTO coffee_cat_id FROM categories WHERE name = 'Coffee';
@@ -215,45 +191,146 @@ BEGIN
     SELECT id INTO bakery_supplier_id FROM suppliers WHERE name = 'Bakery Wholesale';
     SELECT id INTO supplies_supplier_id FROM suppliers WHERE name = 'Restaurant Supplies Plus';
 
-    -- Insert products
-    INSERT INTO products (name, description, unit, cost, minimum_threshold, checkbox_only, category_id, supplier_id, sort_order) VALUES 
+    -- Insert products (without category_id and supplier_id)
     -- Coffee Products
-    ('House Blend Coffee Beans', 'Medium roast house blend', 'lbs', 12.50, 10, false, coffee_cat_id, coffee_supplier_id, 1),
-    ('Dark Roast Coffee Beans', 'Bold dark roast', 'lbs', 13.00, 8, false, coffee_cat_id, coffee_supplier_id, 2),
-    ('Decaf Coffee Beans', 'Swiss water process decaf', 'lbs', 14.00, 5, false, coffee_cat_id, coffee_supplier_id, 3),
-    ('Espresso Beans', 'Premium espresso blend', 'lbs', 15.50, 6, false, coffee_cat_id, coffee_supplier_id, 4),
+    INSERT INTO products (name, description, unit, cost, minimum_threshold, checkbox_only, sort_order) VALUES 
+    ('House Blend Coffee Beans', 'Medium roast house blend', 'lbs', 12.50, 10, false, 1) RETURNING id INTO product_id;
+    INSERT INTO product_categories (product_id, category_id, is_primary) VALUES (product_id, coffee_cat_id, true);
+    INSERT INTO product_suppliers (product_id, supplier_id, is_primary) VALUES (product_id, coffee_supplier_id, true);
+
+    INSERT INTO products (name, description, unit, cost, minimum_threshold, checkbox_only, sort_order) VALUES 
+    ('Dark Roast Coffee Beans', 'Bold dark roast', 'lbs', 13.00, 8, false, 2) RETURNING id INTO product_id;
+    INSERT INTO product_categories (product_id, category_id, is_primary) VALUES (product_id, coffee_cat_id, true);
+    INSERT INTO product_suppliers (product_id, supplier_id, is_primary) VALUES (product_id, coffee_supplier_id, true);
+
+    INSERT INTO products (name, description, unit, cost, minimum_threshold, checkbox_only, sort_order) VALUES 
+    ('Decaf Coffee Beans', 'Swiss water process decaf', 'lbs', 14.00, 5, false, 3) RETURNING id INTO product_id;
+    INSERT INTO product_categories (product_id, category_id, is_primary) VALUES (product_id, coffee_cat_id, true);
+    INSERT INTO product_suppliers (product_id, supplier_id, is_primary) VALUES (product_id, coffee_supplier_id, true);
+
+    INSERT INTO products (name, description, unit, cost, minimum_threshold, checkbox_only, sort_order) VALUES 
+    ('Espresso Beans', 'Premium espresso blend', 'lbs', 15.50, 6, false, 4) RETURNING id INTO product_id;
+    INSERT INTO product_categories (product_id, category_id, is_primary) VALUES (product_id, coffee_cat_id, true);
+    INSERT INTO product_suppliers (product_id, supplier_id, is_primary) VALUES (product_id, coffee_supplier_id, true);
     
     -- Dairy Products
-    ('Whole Milk', 'Fresh whole milk', 'gallons', 4.50, 20, false, dairy_cat_id, dairy_supplier_id, 5),
-    ('2% Milk', 'Reduced fat milk', 'gallons', 4.25, 15, false, dairy_cat_id, dairy_supplier_id, 6),
-    ('Oat Milk', 'Plant-based oat milk', 'cartons', 3.75, 10, false, dairy_cat_id, dairy_supplier_id, 7),
-    ('Almond Milk', 'Unsweetened almond milk', 'cartons', 3.50, 8, false, dairy_cat_id, dairy_supplier_id, 8),
-    ('Heavy Cream', 'Heavy whipping cream', 'quarts', 5.50, 8, false, dairy_cat_id, dairy_supplier_id, 9),
+    INSERT INTO products (name, description, unit, cost, minimum_threshold, checkbox_only, sort_order) VALUES 
+    ('Whole Milk', 'Fresh whole milk', 'gallons', 4.50, 20, false, 5) RETURNING id INTO product_id;
+    INSERT INTO product_categories (product_id, category_id, is_primary) VALUES (product_id, dairy_cat_id, true);
+    INSERT INTO product_suppliers (product_id, supplier_id, is_primary) VALUES (product_id, dairy_supplier_id, true);
+
+    INSERT INTO products (name, description, unit, cost, minimum_threshold, checkbox_only, sort_order) VALUES 
+    ('2% Milk', 'Reduced fat milk', 'gallons', 4.25, 15, false, 6) RETURNING id INTO product_id;
+    INSERT INTO product_categories (product_id, category_id, is_primary) VALUES (product_id, dairy_cat_id, true);
+    INSERT INTO product_suppliers (product_id, supplier_id, is_primary) VALUES (product_id, dairy_supplier_id, true);
+
+    INSERT INTO products (name, description, unit, cost, minimum_threshold, checkbox_only, sort_order) VALUES 
+    ('Oat Milk', 'Plant-based oat milk', 'cartons', 3.75, 10, false, 7) RETURNING id INTO product_id;
+    INSERT INTO product_categories (product_id, category_id, is_primary) VALUES (product_id, dairy_cat_id, true);
+    INSERT INTO product_suppliers (product_id, supplier_id, is_primary) VALUES (product_id, dairy_supplier_id, true);
+    -- Add secondary supplier for oat milk (example of multiple suppliers)
+    INSERT INTO product_suppliers (product_id, supplier_id, is_primary, cost_override) VALUES (product_id, supplies_supplier_id, false, 3.90);
+
+    INSERT INTO products (name, description, unit, cost, minimum_threshold, checkbox_only, sort_order) VALUES 
+    ('Almond Milk', 'Unsweetened almond milk', 'cartons', 3.50, 8, false, 8) RETURNING id INTO product_id;
+    INSERT INTO product_categories (product_id, category_id, is_primary) VALUES (product_id, dairy_cat_id, true);
+    INSERT INTO product_suppliers (product_id, supplier_id, is_primary) VALUES (product_id, dairy_supplier_id, true);
+
+    INSERT INTO products (name, description, unit, cost, minimum_threshold, checkbox_only, sort_order) VALUES 
+    ('Heavy Cream', 'Heavy whipping cream', 'quarts', 5.50, 8, false, 9) RETURNING id INTO product_id;
+    INSERT INTO product_categories (product_id, category_id, is_primary) VALUES (product_id, dairy_cat_id, true);
+    INSERT INTO product_suppliers (product_id, supplier_id, is_primary) VALUES (product_id, dairy_supplier_id, true);
     
-    -- Pastries
-    ('Croissants', 'Butter croissants', 'dozen', 18.00, 5, false, pastry_cat_id, bakery_supplier_id, 10),
-    ('Muffins', 'Assorted muffins', 'dozen', 15.00, 3, false, pastry_cat_id, bakery_supplier_id, 11),
-    ('Scones', 'Traditional scones', 'dozen', 16.00, 4, false, pastry_cat_id, bakery_supplier_id, 12),
-    ('Cookies', 'Chocolate chip cookies', 'dozen', 12.00, 4, false, pastry_cat_id, bakery_supplier_id, 13),
+    -- Pastries (example of products with multiple categories)
+    INSERT INTO products (name, description, unit, cost, minimum_threshold, checkbox_only, sort_order) VALUES 
+    ('Croissants', 'Butter croissants', 'dozen', 18.00, 5, false, 10) RETURNING id INTO product_id;
+    INSERT INTO product_categories (product_id, category_id, is_primary) VALUES (product_id, pastry_cat_id, true);
+    INSERT INTO product_suppliers (product_id, supplier_id, is_primary) VALUES (product_id, bakery_supplier_id, true);
+
+    INSERT INTO products (name, description, unit, cost, minimum_threshold, checkbox_only, sort_order) VALUES 
+    ('Muffins', 'Assorted muffins', 'dozen', 15.00, 3, false, 11) RETURNING id INTO product_id;
+    INSERT INTO product_categories (product_id, category_id, is_primary) VALUES (product_id, pastry_cat_id, true);
+    INSERT INTO product_suppliers (product_id, supplier_id, is_primary) VALUES (product_id, bakery_supplier_id, true);
+
+    INSERT INTO products (name, description, unit, cost, minimum_threshold, checkbox_only, sort_order) VALUES 
+    ('Scones', 'Traditional scones', 'dozen', 16.00, 4, false, 12) RETURNING id INTO product_id;
+    INSERT INTO product_categories (product_id, category_id, is_primary) VALUES (product_id, pastry_cat_id, true);
+    INSERT INTO product_suppliers (product_id, supplier_id, is_primary) VALUES (product_id, bakery_supplier_id, true);
+
+    INSERT INTO products (name, description, unit, cost, minimum_threshold, checkbox_only, sort_order) VALUES 
+    ('Cookies', 'Chocolate chip cookies', 'dozen', 12.00, 4, false, 13) RETURNING id INTO product_id;
+    INSERT INTO product_categories (product_id, category_id, is_primary) VALUES (product_id, pastry_cat_id, true);
+    INSERT INTO product_suppliers (product_id, supplier_id, is_primary) VALUES (product_id, bakery_supplier_id, true);
     
     -- Syrups
-    ('Vanilla Syrup', 'Natural vanilla syrup', 'bottles', 8.50, 6, false, syrup_cat_id, supplies_supplier_id, 14),
-    ('Caramel Syrup', 'Rich caramel syrup', 'bottles', 8.75, 6, false, syrup_cat_id, supplies_supplier_id, 15),
-    ('Hazelnut Syrup', 'Hazelnut flavored syrup', 'bottles', 8.50, 4, false, syrup_cat_id, supplies_supplier_id, 16),
-    ('Lavender Syrup', 'Signature lavender syrup', 'bottles', 9.50, 8, false, syrup_cat_id, supplies_supplier_id, 17),
-    ('Rose Syrup', 'Delicate rose syrup', 'bottles', 9.25, 6, false, syrup_cat_id, supplies_supplier_id, 18),
+    INSERT INTO products (name, description, unit, cost, minimum_threshold, checkbox_only, sort_order) VALUES 
+    ('Vanilla Syrup', 'Natural vanilla syrup', 'bottles', 8.50, 6, false, 14) RETURNING id INTO product_id;
+    INSERT INTO product_categories (product_id, category_id, is_primary) VALUES (product_id, syrup_cat_id, true);
+    INSERT INTO product_suppliers (product_id, supplier_id, is_primary) VALUES (product_id, supplies_supplier_id, true);
+
+    INSERT INTO products (name, description, unit, cost, minimum_threshold, checkbox_only, sort_order) VALUES 
+    ('Caramel Syrup', 'Rich caramel syrup', 'bottles', 8.75, 6, false, 15) RETURNING id INTO product_id;
+    INSERT INTO product_categories (product_id, category_id, is_primary) VALUES (product_id, syrup_cat_id, true);
+    INSERT INTO product_suppliers (product_id, supplier_id, is_primary) VALUES (product_id, supplies_supplier_id, true);
+
+    INSERT INTO products (name, description, unit, cost, minimum_threshold, checkbox_only, sort_order) VALUES 
+    ('Hazelnut Syrup', 'Hazelnut flavored syrup', 'bottles', 8.50, 4, false, 16) RETURNING id INTO product_id;
+    INSERT INTO product_categories (product_id, category_id, is_primary) VALUES (product_id, syrup_cat_id, true);
+    INSERT INTO product_suppliers (product_id, supplier_id, is_primary) VALUES (product_id, supplies_supplier_id, true);
+
+    INSERT INTO products (name, description, unit, cost, minimum_threshold, checkbox_only, sort_order) VALUES 
+    ('Lavender Syrup', 'Signature lavender syrup', 'bottles', 9.50, 8, false, 17) RETURNING id INTO product_id;
+    INSERT INTO product_categories (product_id, category_id, is_primary) VALUES (product_id, syrup_cat_id, true);
+    INSERT INTO product_suppliers (product_id, supplier_id, is_primary) VALUES (product_id, supplies_supplier_id, true);
+
+    INSERT INTO products (name, description, unit, cost, minimum_threshold, checkbox_only, sort_order) VALUES 
+    ('Rose Syrup', 'Delicate rose syrup', 'bottles', 9.25, 6, false, 18) RETURNING id INTO product_id;
+    INSERT INTO product_categories (product_id, category_id, is_primary) VALUES (product_id, syrup_cat_id, true);
+    INSERT INTO product_suppliers (product_id, supplier_id, is_primary) VALUES (product_id, supplies_supplier_id, true);
     
     -- Cups & Supplies
-    ('12oz Paper Cups', 'Biodegradable paper cups', 'sleeves', 25.00, 20, false, cup_cat_id, supplies_supplier_id, 19),
-    ('16oz Paper Cups', 'Large paper cups', 'sleeves', 28.00, 15, false, cup_cat_id, supplies_supplier_id, 20),
-    ('Cup Lids', 'Dome lids for hot drinks', 'sleeves', 15.00, 25, false, cup_cat_id, supplies_supplier_id, 21),
-    ('Cup Carriers', '4-cup carriers', 'packs', 12.00, 10, false, cup_cat_id, supplies_supplier_id, 22),
+    INSERT INTO products (name, description, unit, cost, minimum_threshold, checkbox_only, sort_order) VALUES 
+    ('12oz Paper Cups', 'Biodegradable paper cups', 'sleeves', 25.00, 20, false, 19) RETURNING id INTO product_id;
+    INSERT INTO product_categories (product_id, category_id, is_primary) VALUES (product_id, cup_cat_id, true);
+    INSERT INTO product_suppliers (product_id, supplier_id, is_primary) VALUES (product_id, supplies_supplier_id, true);
+
+    INSERT INTO products (name, description, unit, cost, minimum_threshold, checkbox_only, sort_order) VALUES 
+    ('16oz Paper Cups', 'Large paper cups', 'sleeves', 28.00, 15, false, 20) RETURNING id INTO product_id;
+    INSERT INTO product_categories (product_id, category_id, is_primary) VALUES (product_id, cup_cat_id, true);
+    INSERT INTO product_suppliers (product_id, supplier_id, is_primary) VALUES (product_id, supplies_supplier_id, true);
+
+    INSERT INTO products (name, description, unit, cost, minimum_threshold, checkbox_only, sort_order) VALUES 
+    ('Cup Lids', 'Dome lids for hot drinks', 'sleeves', 15.00, 25, false, 21) RETURNING id INTO product_id;
+    INSERT INTO product_categories (product_id, category_id, is_primary) VALUES (product_id, cup_cat_id, true);
+    INSERT INTO product_suppliers (product_id, supplier_id, is_primary) VALUES (product_id, supplies_supplier_id, true);
+
+    INSERT INTO products (name, description, unit, cost, minimum_threshold, checkbox_only, sort_order) VALUES 
+    ('Cup Carriers', '4-cup carriers', 'packs', 12.00, 10, false, 22) RETURNING id INTO product_id;
+    INSERT INTO product_categories (product_id, category_id, is_primary) VALUES (product_id, cup_cat_id, true);
+    INSERT INTO product_suppliers (product_id, supplier_id, is_primary) VALUES (product_id, supplies_supplier_id, true);
     
-    -- Cleaning (some checkbox-only)
-    ('Sanitizer', 'Food-safe sanitizer', 'bottles', 12.00, 8, true, cleaning_cat_id, supplies_supplier_id, 23),
-    ('Paper Towels', 'Commercial paper towels', 'cases', 35.00, 3, false, cleaning_cat_id, supplies_supplier_id, 24),
-    ('Dish Soap', 'Commercial dish soap', 'gallons', 18.00, 4, false, cleaning_cat_id, supplies_supplier_id, 25),
-    ('Floor Cleaner', 'Commercial floor cleaner', 'bottles', 15.00, 2, true, cleaning_cat_id, supplies_supplier_id, 26);
+    -- Cleaning (some checkbox-only, example of multiple categories)
+    INSERT INTO products (name, description, unit, cost, minimum_threshold, checkbox_only, sort_order) VALUES 
+    ('Sanitizer', 'Food-safe sanitizer', 'bottles', 12.00, 8, true, 23) RETURNING id INTO product_id;
+    INSERT INTO product_categories (product_id, category_id, is_primary) VALUES (product_id, cleaning_cat_id, true);
+    -- Add as secondary category to cups & lids since it's used for sanitizing cups
+    INSERT INTO product_categories (product_id, category_id, is_primary) VALUES (product_id, cup_cat_id, false);
+    INSERT INTO product_suppliers (product_id, supplier_id, is_primary) VALUES (product_id, supplies_supplier_id, true);
+
+    INSERT INTO products (name, description, unit, cost, minimum_threshold, checkbox_only, sort_order) VALUES 
+    ('Paper Towels', 'Commercial paper towels', 'cases', 35.00, 3, false, 24) RETURNING id INTO product_id;
+    INSERT INTO product_categories (product_id, category_id, is_primary) VALUES (product_id, cleaning_cat_id, true);
+    INSERT INTO product_suppliers (product_id, supplier_id, is_primary) VALUES (product_id, supplies_supplier_id, true);
+
+    INSERT INTO products (name, description, unit, cost, minimum_threshold, checkbox_only, sort_order) VALUES 
+    ('Dish Soap', 'Commercial dish soap', 'gallons', 18.00, 4, false, 25) RETURNING id INTO product_id;
+    INSERT INTO product_categories (product_id, category_id, is_primary) VALUES (product_id, cleaning_cat_id, true);
+    INSERT INTO product_suppliers (product_id, supplier_id, is_primary) VALUES (product_id, supplies_supplier_id, true);
+
+    INSERT INTO products (name, description, unit, cost, minimum_threshold, checkbox_only, sort_order) VALUES 
+    ('Floor Cleaner', 'Commercial floor cleaner', 'bottles', 15.00, 2, true, 26) RETURNING id INTO product_id;
+    INSERT INTO product_categories (product_id, category_id, is_primary) VALUES (product_id, cleaning_cat_id, true);
+    INSERT INTO product_suppliers (product_id, supplier_id, is_primary) VALUES (product_id, supplies_supplier_id, true);
 END $$;
 
 -- Enable Row Level Security (RLS) for all tables
@@ -262,6 +339,8 @@ ALTER TABLE locations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE suppliers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE product_categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE product_suppliers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE draft_orders ENABLE ROW LEVEL SECURITY;
@@ -275,14 +354,20 @@ CREATE POLICY "Allow all operations" ON locations FOR ALL USING (true);
 CREATE POLICY "Allow all operations" ON categories FOR ALL USING (true);
 CREATE POLICY "Allow all operations" ON suppliers FOR ALL USING (true);
 CREATE POLICY "Allow all operations" ON products FOR ALL USING (true);
+CREATE POLICY "Allow all operations" ON product_categories FOR ALL USING (true);
+CREATE POLICY "Allow all operations" ON product_suppliers FOR ALL USING (true);
 CREATE POLICY "Allow all operations" ON orders FOR ALL USING (true);
 CREATE POLICY "Allow all operations" ON order_items FOR ALL USING (true);
 CREATE POLICY "Allow all operations" ON draft_orders FOR ALL USING (true);
 
 -- Create indexes for better performance
-CREATE INDEX idx_products_category ON products(category_id);
-CREATE INDEX idx_products_supplier ON products(supplier_id);
 CREATE INDEX idx_products_sort_order ON products(sort_order);
+CREATE INDEX idx_product_categories_product ON product_categories(product_id);
+CREATE INDEX idx_product_categories_category ON product_categories(category_id);
+CREATE INDEX idx_product_categories_primary ON product_categories(product_id, is_primary);
+CREATE INDEX idx_product_suppliers_product ON product_suppliers(product_id);
+CREATE INDEX idx_product_suppliers_supplier ON product_suppliers(supplier_id);
+CREATE INDEX idx_product_suppliers_primary ON product_suppliers(product_id, is_primary);
 CREATE INDEX idx_orders_location ON orders(location_id);
 CREATE INDEX idx_orders_date ON orders(order_date);
 CREATE INDEX idx_order_items_order ON order_items(order_id);

@@ -54,6 +54,26 @@ export interface Supplier {
   updated_at: string;
 }
 
+// Junction table types for many-to-many relationships
+export interface ProductCategory {
+  id: string;
+  product_id: string;
+  category_id: string;
+  is_primary: boolean;
+  created_at: string;
+  category?: Category; // Populated via joins
+}
+
+export interface ProductSupplier {
+  id: string;
+  product_id: string;
+  supplier_id: string;
+  is_primary: boolean;
+  cost_override?: number;
+  created_at: string;
+  supplier?: Supplier; // Populated via joins
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -63,12 +83,18 @@ export interface Product {
   minimum_threshold: number;
   checkbox_only: boolean;
   hidden: boolean; // Whether this product is hidden from inventory lists
-  category_id?: string;
-  supplier_id?: string;
   current_quantity?: number; // This will come from inventory_counts
   sort_order: number;
   created_at: string;
   updated_at: string;
+  // Many-to-many relationships
+  product_categories?: ProductCategory[]; // All categories for this product
+  product_suppliers?: ProductSupplier[]; // All suppliers for this product
+  // Convenience properties for backward compatibility
+  category_id?: string; // Primary category ID
+  supplier_id?: string; // Primary supplier ID
+  primary_category?: Category; // Primary category object
+  primary_supplier?: Supplier; // Primary supplier object
 }
 
 export interface OrderItem {
@@ -94,7 +120,7 @@ export interface Order {
   location_id: string;
   location_name: string;
   items: OrderItem[];
-  status: 'draft' | 'submitted';
+  status: 'draft' | 'pending' | 'completed';
   notes?: string;
   created_at: string;
   updated_at: string;
