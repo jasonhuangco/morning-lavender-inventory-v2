@@ -304,43 +304,40 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
       let orderData;
       let orderError;
       
-      try {
-        const { data, error } = await supabase
+      // First attempt with user_name
+      const { data, error } = await supabase
+        .from('orders')
+        .insert([{
+          order_number: orderNumber,
+          location_id: inventoryCount.location_id,
+          status: 'pending', // New orders start as pending
+          notes: orderNotes,
+          user_name: inventoryCount.user_name, // Store user name as separate field
+          order_date: new Date().toISOString()
+        }])
+        .select()
+        .single();
+      
+      orderData = data;
+      orderError = error;
+      
+      // If user_name column doesn't exist, try without it
+      if (orderError && (orderError.message?.includes('user_name') || orderError.message?.includes('column'))) {
+        console.warn('user_name column not found, inserting without it');
+        const { data: fallbackData, error: fallbackError } = await supabase
           .from('orders')
           .insert([{
             order_number: orderNumber,
             location_id: inventoryCount.location_id,
             status: 'pending', // New orders start as pending
             notes: orderNotes,
-            user_name: inventoryCount.user_name, // Store user name as separate field
             order_date: new Date().toISOString()
           }])
           .select()
           .single();
         
-        orderData = data;
-        orderError = error;
-      } catch (err: any) {
-        // If user_name column doesn't exist, try without it
-        if (err.message?.includes('user_name') || err.message?.includes('column')) {
-          console.warn('user_name column not found, inserting without it');
-          const { data, error } = await supabase
-            .from('orders')
-            .insert([{
-              order_number: orderNumber,
-              location_id: inventoryCount.location_id,
-              status: 'pending', // New orders start as pending
-              notes: orderNotes,
-              order_date: new Date().toISOString()
-            }])
-            .select()
-            .single();
-          
-          orderData = data;
-          orderError = error;
-        } else {
-          throw err;
-        }
+        orderData = fallbackData;
+        orderError = fallbackError;
       }
 
       if (orderError) {
