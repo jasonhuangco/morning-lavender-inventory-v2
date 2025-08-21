@@ -840,6 +840,18 @@ export default function OrderHistoryPage() {
                     <span className="ml-2">{selectedOrder.location_name}</span>
                   </div>
                 </div>
+                
+                {/* Order Notes */}
+                {selectedOrder.notes && (
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <div className="space-y-2">
+                      <span className="font-medium text-gray-700">Order Notes:</span>
+                      <div className="text-gray-900 text-sm bg-gray-50 p-3 rounded-md border">
+                        {selectedOrder.notes}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Items */}
