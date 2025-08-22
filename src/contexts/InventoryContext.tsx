@@ -424,7 +424,7 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
         throw error;
       }
 
-      // Handle category relationships if provided
+      // Handle category relationships (for new schema with junction tables)
       if (categories && Array.isArray(categories) && categories.length > 0) {
         const categoryInserts = categories.map((cat: any) => ({
           product_id: data.id,
@@ -438,11 +438,12 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
 
         if (categoryError) {
           console.error('Error adding product categories:', categoryError);
-          throw categoryError;
+          console.warn('Junction table might not exist (old schema) - this is expected for existing deployments');
+          // Don't throw error to maintain backward compatibility
         }
       }
 
-      // Handle supplier relationships if provided
+      // Handle supplier relationships (for new schema with junction tables)
       if (suppliers && Array.isArray(suppliers) && suppliers.length > 0) {
         const supplierInserts = suppliers.map((sup: any) => ({
           product_id: data.id,
@@ -457,7 +458,8 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
 
         if (supplierError) {
           console.error('Error adding product suppliers:', supplierError);
-          throw supplierError;
+          console.warn('Junction table might not exist (old schema) - this is expected for existing deployments');
+          // Don't throw error to maintain backward compatibility
         }
       }
 
@@ -519,29 +521,31 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
 
         if (deleteCatError) {
           console.error('Error deleting existing categories:', deleteCatError);
-          throw deleteCatError;
-        }
+          console.warn('Junction table might not exist (old schema) - this is expected for existing deployments');
+          // Don't throw error to maintain backward compatibility
+        } else {
+          // Insert new category relationships only if delete succeeded
+          if (categories.length > 0) {
+            const categoryInserts = categories.map((cat: any) => ({
+              product_id: id,
+              category_id: cat.id,
+              is_primary: cat.is_primary || false
+            }));
 
-        // Insert new category relationships
-        if (categories.length > 0) {
-          const categoryInserts = categories.map((cat: any) => ({
-            product_id: id,
-            category_id: cat.id,
-            is_primary: cat.is_primary || false
-          }));
+            console.log('📝 Inserting categories:', categoryInserts);
 
-          console.log('📝 Inserting categories:', categoryInserts);
+            const { error: categoryError } = await supabase
+              .from('product_categories')
+              .insert(categoryInserts);
 
-          const { error: categoryError } = await supabase
-            .from('product_categories')
-            .insert(categoryInserts);
-
-          if (categoryError) {
-            console.error('Error updating product categories:', categoryError);
-            throw categoryError;
+            if (categoryError) {
+              console.error('Error updating product categories:', categoryError);
+              console.warn('Junction table might not exist (old schema) - this is expected for existing deployments');
+              // Don't throw error to maintain backward compatibility
+            } else {
+              console.log('✅ Categories updated successfully');
+            }
           }
-          
-          console.log('✅ Categories updated successfully');
         }
       }
 
@@ -557,30 +561,32 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
 
         if (deleteSupError) {
           console.error('Error deleting existing suppliers:', deleteSupError);
-          throw deleteSupError;
-        }
+          console.warn('Junction table might not exist (old schema) - this is expected for existing deployments');
+          // Don't throw error to maintain backward compatibility
+        } else {
+          // Insert new supplier relationships only if delete succeeded
+          if (suppliers.length > 0) {
+            const supplierInserts = suppliers.map((sup: any) => ({
+              product_id: id,
+              supplier_id: sup.id,
+              is_primary: sup.is_primary || false,
+              cost_override: sup.cost_override || null
+            }));
 
-        // Insert new supplier relationships
-        if (suppliers.length > 0) {
-          const supplierInserts = suppliers.map((sup: any) => ({
-            product_id: id,
-            supplier_id: sup.id,
-            is_primary: sup.is_primary || false,
-            cost_override: sup.cost_override || null
-          }));
+            console.log('📝 Inserting suppliers:', supplierInserts);
 
-          console.log('📝 Inserting suppliers:', supplierInserts);
+            const { error: supplierError } = await supabase
+              .from('product_suppliers')
+              .insert(supplierInserts);
 
-          const { error: supplierError } = await supabase
-            .from('product_suppliers')
-            .insert(supplierInserts);
-
-          if (supplierError) {
-            console.error('Error updating product suppliers:', supplierError);
-            throw supplierError;
+            if (supplierError) {
+              console.error('Error updating product suppliers:', supplierError);
+              console.warn('Junction table might not exist (old schema) - this is expected for existing deployments');
+              // Don't throw error to maintain backward compatibility
+            } else {
+              console.log('✅ Suppliers updated successfully');
+            }
           }
-          
-          console.log('✅ Suppliers updated successfully');
         }
       }
 

@@ -24,7 +24,10 @@ export default function ProductManagement() {
     checkbox_only: false,
     hidden: false,
     categories: [] as Array<{ id: string; is_primary: boolean }>,
-    suppliers: [] as Array<{ id: string; is_primary: boolean; cost_override?: number }>
+    suppliers: [] as Array<{ id: string; is_primary: boolean; cost_override?: number }>,
+    // Keep old fields for backward compatibility with existing deployments
+    category_id: '',
+    supplier_id: ''
   });
 
   // Helper function to create default form data
@@ -37,7 +40,10 @@ export default function ProductManagement() {
     checkbox_only: false,
     hidden: false,
     categories: [] as Array<{ id: string; is_primary: boolean }>,
-    suppliers: [] as Array<{ id: string; is_primary: boolean; cost_override?: number }>
+    suppliers: [] as Array<{ id: string; is_primary: boolean; cost_override?: number }>,
+    // Keep old fields for backward compatibility with existing deployments
+    category_id: '',
+    supplier_id: ''
   });
 
   // Helper function to create form data from product
@@ -83,7 +89,10 @@ export default function ProductManagement() {
         id: sup.supplier.id, 
         is_primary: sup.supplier.id === getPrimarySupplier(product, suppliers)?.id,
         cost_override: sup.cost_override
-      }))
+      })),
+      // Backward compatibility fields for existing deployments
+      category_id: getPrimaryCategory(product, categories)?.id || '',
+      supplier_id: getPrimarySupplier(product, suppliers)?.id || ''
     };
 
     console.log('🔍 Final formData suppliers:', formData.suppliers);
@@ -98,7 +107,9 @@ export default function ProductManagement() {
       const newCategories = [...formData.categories, { id: categoryId, is_primary: formData.categories.length === 0 }];
       setFormData({ 
         ...formData, 
-        categories: newCategories
+        categories: newCategories,
+        // Update backward compatibility field
+        category_id: newCategories.find(c => c.is_primary)?.id || newCategories[0]?.id || ''
       });
     } else {
       // Remove category
@@ -109,7 +120,9 @@ export default function ProductManagement() {
       }
       setFormData({ 
         ...formData, 
-        categories: newCategories
+        categories: newCategories,
+        // Update backward compatibility field
+        category_id: newCategories.find(c => c.is_primary)?.id || ''
       });
     }
   };
@@ -122,7 +135,9 @@ export default function ProductManagement() {
     }));
     setFormData({ 
       ...formData, 
-      categories: newCategories
+      categories: newCategories,
+      // Update backward compatibility field
+      category_id: categoryId
     });
   };
 
@@ -133,7 +148,9 @@ export default function ProductManagement() {
       const newSuppliers = [...formData.suppliers, { id: supplierId, is_primary: formData.suppliers.length === 0 }];
       setFormData({ 
         ...formData, 
-        suppliers: newSuppliers
+        suppliers: newSuppliers,
+        // Update backward compatibility field
+        supplier_id: newSuppliers.find(s => s.is_primary)?.id || newSuppliers[0]?.id || ''
       });
     } else {
       // Remove supplier
@@ -144,7 +161,9 @@ export default function ProductManagement() {
       }
       setFormData({ 
         ...formData, 
-        suppliers: newSuppliers
+        suppliers: newSuppliers,
+        // Update backward compatibility field
+        supplier_id: newSuppliers.find(s => s.is_primary)?.id || ''
       });
     }
   };
@@ -157,7 +176,9 @@ export default function ProductManagement() {
     }));
     setFormData({ 
       ...formData, 
-      suppliers: newSuppliers
+      suppliers: newSuppliers,
+      // Update backward compatibility field
+      supplier_id: supplierId
     });
   };
 
