@@ -70,34 +70,33 @@ In your Supabase project:
 
 1. Go to **Email Templates**
 2. Click **Create New Template**
-3. Set template content:
-
-```html
-Subject: Inventory Order - {{location_name}} - {{order_date}}
-
-Hello Team,
-
-A new inventory order has been submitted:
-
-**Order Details:**
-- Staff Member: {{user_name}}
-- Location: {{location_name}}
-- Order Date: {{order_date}}
-- Items Needing Orders: {{items_needing_orders}}
-- Total Items Counted: {{total_items}}
-
-**Items Requiring Restock:**
-{{#items}}
-- {{product_name}}: {{quantity}} {{unit}} (Supplier: {{supplier_name}})
-{{/items}}
-
-**Order Summary:** {{summary}}
-
-Please process this order promptly.
-
-Best regards,
-Morning Lavender Inventory System
+3. Set the **Subject** field to:
 ```
+Inventory Order - {{location_name}} - {{order_date}}
+```
+
+4. Set the **Message** field to the HTML template provided in `email-template.html` file, or copy this HTML:
+
+**IMPORTANT:** Use the HTML template from the `email-template.html` file in the project root. This template includes:
+- Professional Morning Lavender branding
+- Responsive design for all email clients
+- Proper variable substitution ({{user_name}}, {{location_name}}, etc.)
+- Conditional sections for order notes
+- Formatted items list with supplier and quantity details
+- Clear call-to-action for order processing
+
+The template uses these variables from the system:
+- `{{user_name}}` - Staff member who submitted the order
+- `{{location_name}}` - Store location name
+- `{{order_date}}` - Date in PST timezone
+- `{{order_time}}` - Time in PST timezone
+- `{{total_items}}` - Number of items requiring restock
+- `{{summary}}` - One-line order summary
+- `{{items_list}}` - Detailed formatted list of items to order
+- `{{order_note}}` - Optional note from staff member
+- `{{has_note}}` - Conditional helper (use `{{#has_note}}...{{/has_note}}`)
+
+5. Save the template and copy the **Template ID**
 
 4. Save and note the **Template ID**
 

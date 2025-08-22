@@ -1,5 +1,5 @@
 import emailjs from '@emailjs/browser';
-import { config, isDevelopment } from '../config/env';
+import { config } from '../config/env';
 import { InventoryCount, Product, Location, Category, Supplier } from '../types';
 
 // Initialize EmailJS
@@ -39,16 +39,10 @@ export const emailService = {
         publicKey: !!config.emailjs.publicKey
       });
       
-      if (isDevelopment) {
-        console.log('📧 Email simulation (dev mode - no credentials):', {
-          user: inventoryCount.user_name,
-          location: inventoryCount.location_id,
-          itemsToOrder: Object.keys(inventoryCount.products).length
-        });
-        return { success: true, message: 'Email simulation (dev mode - no credentials)' };
-      }
-      
-      throw new Error('EmailJS credentials are required');
+      // Always return success when credentials are missing instead of throwing error
+      // This allows orders to be saved even without email configuration
+      console.log('📧 Email disabled - no credentials provided. Order will still be saved.');
+      return { success: false, message: 'Email disabled - no credentials provided' };
     }
 
     console.log('📧 EmailJS configured, attempting to send email...');
@@ -187,7 +181,7 @@ export const emailService = {
   // Simple test with minimal data
   async sendSimpleTest() {
     if (!config.emailjs.serviceId || !config.emailjs.templateId || !config.emailjs.publicKey) {
-      throw new Error('EmailJS credentials are required');
+      return { success: false, message: 'EmailJS credentials not configured' };
     }
 
     initializeEmailJS();
@@ -225,7 +219,7 @@ export const emailService = {
   // Test email functionality
   async sendTestEmail(userEmail: string) {
     if (!config.emailjs.serviceId || !config.emailjs.templateId || !config.emailjs.publicKey) {
-      throw new Error('EmailJS credentials are required');
+      return { success: false, message: 'EmailJS credentials not configured' };
     }
 
     initializeEmailJS();

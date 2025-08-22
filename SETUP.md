@@ -160,31 +160,23 @@ CREATE POLICY "Allow all for authenticated users" ON order_items FOR ALL USING (
 
 1. Go to **Email Templates**
 2. Click **Create New Template**
-3. Use this template structure:
-
-```html
-Subject: Inventory Order - {{location_name}} - {{order_date}}
-
-Hello,
-
-A new inventory order has been submitted:
-
-**Order Details:**
-- Staff Member: {{user_name}}
-- Location: {{location_name}}
-- Date: {{order_date}} at {{order_time}}
-- Items to Order: {{total_items}}
-
-**Items Requiring Restock:**
-{{items_list}}
-
-**Summary:** {{summary}}
-
-Please process this order as soon as possible.
-
-Best regards,
-Morning Lavender Inventory System
+3. Set the **Subject** field to:
 ```
+Inventory Order - {{location_name}} - {{order_date}}
+```
+
+4. For the **Message** field, use the HTML template from the `email-template.html` file in the project root.
+
+**Key Variables Used:**
+- `{{user_name}}` - Staff member name
+- `{{location_name}}` - Store location
+- `{{order_date}}` - Order date (PST)
+- `{{order_time}}` - Order time (PST)  
+- `{{total_items}}` - Number of items to restock
+- `{{items_list}}` - Formatted list of items
+- `{{summary}}` - Order summary
+- `{{order_note}}` - Optional staff note
+- `{{has_note}}` - Conditional for notes (use `{{#has_note}}...{{/has_note}}`)
 
 4. Save the template and note the **Template ID**
 

@@ -11,7 +11,12 @@ export default function EmailTestPage() {
 
     try {
       const result = await emailService.sendSimpleTest();
-      setStatus(`✅ Simple email sent successfully! Response: ${JSON.stringify(result, null, 2)}`);
+      
+      if (result.success) {
+        setStatus(`✅ Simple email sent successfully! Response: ${JSON.stringify(result, null, 2)}`);
+      } else {
+        setStatus(`❌ Simple email not sent: ${result.message}`);
+      }
     } catch (error: any) {
       setStatus(`❌ Simple email failed: ${error.message}`);
       console.error('Simple email test error:', error);
@@ -135,7 +140,11 @@ export default function EmailTestPage() {
         mockSuppliers
       );
 
-      setStatus(`✅ Email sent successfully! Response: ${JSON.stringify(result)}`);
+      if (result.success) {
+        setStatus(`✅ Email sent successfully! Response: ${JSON.stringify(result)}`);
+      } else {
+        setStatus(`❌ Email not sent: ${result.message}`);
+      }
     } catch (error: any) {
       setStatus(`❌ Email failed: ${error.message}`);
       console.error('Email test error:', error);

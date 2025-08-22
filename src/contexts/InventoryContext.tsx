@@ -376,7 +376,15 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
         });
         
         const emailResult = await emailService.sendOrderEmail(inventoryCount, products, locations, categories, suppliers);
-        console.log('✅ Email sent successfully:', emailResult);
+        console.log('✅ Email result:', emailResult);
+        
+        if (emailResult.success) {
+          console.log('✅ Email sent successfully');
+          alert(`Order submitted successfully! Order #${orderNumber}`);
+        } else {
+          console.log('📧 Email disabled or failed, but order saved successfully');
+          alert(`Order submitted successfully! Order #${orderNumber}\n\nNote: Email notification was not sent (${emailResult.message})`);
+        }
       } catch (emailError) {
         console.error('❌ Email failed (order still saved):', emailError);
         console.error('❌ Email error details:', {
@@ -387,10 +395,8 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
         });
         
         // Show alert to user about email failure
-        alert('Order saved successfully, but email notification failed. Please check console for details.');
+        alert(`Order submitted successfully! Order #${orderNumber}\n\nNote: Email notification failed - please check console for details.`);
       }
-
-      alert(`Order submitted successfully! Order #${orderNumber}`);
     } catch (error) {
       console.error('Error submitting order:', error);
       throw error;
