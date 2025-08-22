@@ -195,6 +195,8 @@ export default function ProductManagement() {
       return;
     }
     
+    console.log('🔍 ProductManagement submitting formData:', formData);
+    
     try {
       if (editingProduct) {
         await updateProduct(editingProduct.id, formData);

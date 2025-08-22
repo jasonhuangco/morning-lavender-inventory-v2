@@ -403,15 +403,18 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
     
     try {
       // Separate junction table data from product data
-      const { categories, suppliers, ...productData } = product as any;
+      const { categories, suppliers, category_id, supplier_id, ...productData } = product as any;
       
       // Get the highest sort_order value
       const maxSortOrder = products.length > 0 ? Math.max(...products.map(p => p.sort_order)) : -1;
       
+      // Create clean product data without legacy foreign key fields
       const productWithSort = {
         ...productData,
         sort_order: maxSortOrder + 1
       };
+
+      console.log('🔍 Inserting product with data:', productWithSort);
 
       const { data, error } = await supabase
         .from('products')
@@ -477,14 +480,15 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
     const supabase = createClient(config.supabase.url, config.supabase.anonKey);
     
     try {
-      // Separate junction table data from product data
-      const { categories, suppliers, ...productUpdates } = updates as any;
+      // Separate junction table data from product data and remove legacy foreign key fields
+      const { categories, suppliers, category_id, supplier_id, ...productUpdates } = updates as any;
       
       console.log('🔍 updateProduct called with:', {
         id,
         categories: categories?.length || 'undefined',
         suppliers: suppliers?.length || 'undefined',
-        productUpdates: Object.keys(productUpdates)
+        productUpdates: Object.keys(productUpdates),
+        removedFields: { category_id, supplier_id }
       });
       
       // Map is_checkbox_only back to checkbox_only for database
@@ -493,6 +497,8 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
         (dbUpdates as any).checkbox_only = dbUpdates.is_checkbox_only;
         delete (dbUpdates as any).is_checkbox_only;
       }
+
+      console.log('🔍 Final dbUpdates to be sent:', dbUpdates);
 
       // Update the main product record
       const { data: productData, error: productError } = await supabase
