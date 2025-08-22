@@ -352,36 +352,70 @@ export default function OrderHistoryPage() {
         suppliers: suppliersData.length
       });
       
-      // Fetch orders with related data
-      const { data: ordersData, error } = await supabaseClient
-        .from('orders')
-        // Query with many-to-many relationships
-        .select(`
-          *,
-          locations(name),
-          order_items(
+      // Fetch orders with related data - try new schema first, fallback to old schema
+      let ordersData, error;
+      
+      try {
+        // Try new schema (many-to-many relationships)
+        console.log('🔄 Trying new database schema...');
+        const newSchemaResult = await supabaseClient
+          .from('orders')
+          .select(`
             *,
-            products(
-              name,
-              minimum_threshold,
-              checkbox_only,
-              category_id,
-              supplier_id,
-              product_categories(
-                category_id,
-                is_primary,
-                categories(name)
-              ),
-              product_suppliers(
-                supplier_id,
-                is_primary,
-                cost_override,
-                suppliers(name)
+            locations(name),
+            order_items(
+              *,
+              products(
+                name,
+                minimum_threshold,
+                checkbox_only,
+                product_categories(
+                  category_id,
+                  is_primary,
+                  categories(name)
+                ),
+                product_suppliers(
+                  supplier_id,
+                  is_primary,
+                  cost_override,
+                  suppliers(name)
+                )
               )
             )
-          )
-        `)
-        .order('created_at', { ascending: false });
+          `)
+          .order('created_at', { ascending: false });
+          
+        if (newSchemaResult.error) throw newSchemaResult.error;
+        ordersData = newSchemaResult.data;
+        error = null;
+        console.log('✅ New schema query successful');
+        
+      } catch (newSchemaError: any) {
+        console.log('⚠️ New schema failed, trying old schema...', newSchemaError.message);
+        
+        // Fallback to old schema (direct foreign keys)
+        const oldSchemaResult = await supabaseClient
+          .from('orders')
+          .select(`
+            *,
+            locations(name),
+            order_items(
+              *,
+              products(
+                name,
+                minimum_threshold,
+                checkbox_only,
+                category_id,
+                supplier_id
+              )
+            )
+          `)
+          .order('created_at', { ascending: false });
+          
+        ordersData = oldSchemaResult.data;
+        error = oldSchemaResult.error;
+        console.log('✅ Old schema query used');
+      }
 
       if (error) {
         console.error('❌ Error loading orders:', error);
