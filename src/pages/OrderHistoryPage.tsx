@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Clock, MapPin, User, Package, FileText, Trash2 } from 'lucide-react';
 import { Order } from '../types';
-import { createClient } from '@supabase/supabase-js';
-import { config } from '../config/env';
+import { getSupabaseClient } from '../services/supabase';
 import { getPrimarySupplier, getProductSuppliers, getProductCategories } from '../utils/productHelpers';
 
-// Create Supabase client outside component to avoid multiple instances warning
-const supabase = createClient(config.supabase.url, config.supabase.anonKey);
+// Get Supabase client using centralized service
+const supabase = getSupabaseClient();
 
 export default function OrderHistoryPage() {
   
@@ -44,6 +43,21 @@ export default function OrderHistoryPage() {
     if (!confirmed) return;
 
     try {
+      // Only attempt database operations if Supabase is available
+      if (!supabase) {
+        console.warn('Database not available - using mock data mode');
+        // Remove from local state only
+        setOrders(prev => prev.filter(order => order.id !== orderId));
+        
+        // Close modal if the deleted order was selected
+        if (selectedOrder?.id === orderId) {
+          setSelectedOrder(null);
+        }
+
+        alert(`Order ${orderNumber} has been removed from view (database not available).`);
+        return;
+      }
+
       // Delete the order (order_items will be automatically deleted due to CASCADE)
       const { error } = await supabase
         .from('orders')
@@ -150,7 +164,7 @@ export default function OrderHistoryPage() {
         : 'Unknown User';
       
       // Update database (only if not using mock data)
-      if (selectedOrder && selectedOrder.id !== '1') { // '1' is our mock order ID
+      if (selectedOrder && selectedOrder.id !== '1' && supabase) { // '1' is our mock order ID
         const { error } = await supabase
           .from('order_items')
           .update({
@@ -239,7 +253,7 @@ export default function OrderHistoryPage() {
       console.log(`Updating order ${orderId} status to ${newStatus}`);
       
       // Update order status in database (only if not using mock data)
-      if (orderId !== '1') { // '1' is our mock order ID
+      if (orderId !== '1' && supabase) { // '1' is our mock order ID
         // First, check if the order exists
         const { data: existingOrder, error: fetchError } = await supabase
           .from('orders')
@@ -313,6 +327,13 @@ export default function OrderHistoryPage() {
   const loadOrders = async () => {
     try {
       setLoading(true);
+      
+      // Check if Supabase is available
+      if (!supabase) {
+        console.warn('Database not available - loading mock data...');
+        throw new Error('Database not available');
+      }
+      
       console.log('Loading orders from database...');
       
       // Load categories and suppliers for helper functions
@@ -321,8 +342,8 @@ export default function OrderHistoryPage() {
         supabase.from('suppliers').select('*')
       ]);
       
-      const categoriesData = categoriesResult.data || [];
-      const suppliersData = suppliersResult.data || [];
+      const categoriesData = (categoriesResult.data || []) as any[];
+      const suppliersData = (suppliersResult.data || []) as any[];
       setCategories(categoriesData);
       setSuppliers(suppliersData);
       
@@ -367,8 +388,9 @@ export default function OrderHistoryPage() {
       // Debug: Check what order_items data looks like
       if (ordersData && ordersData.length > 0) {
         const firstOrder = ordersData[0];
-        const orderedItems = firstOrder.order_items?.filter((item: any) => item.ordered_status === true) || [];
-        console.log(`🔍 Raw DB data - First order has ${orderedItems.length} ordered items out of ${firstOrder.order_items?.length || 0} total`);
+        const orderItems = Array.isArray(firstOrder.order_items) ? firstOrder.order_items : [];
+        const orderedItems = orderItems.filter((item: any) => item.ordered_status === true) || [];
+        console.log(`🔍 Raw DB data - First order has ${orderedItems.length} ordered items out of ${orderItems.length} total`);
         if (orderedItems.length > 0) {
           console.log('🔍 Sample ordered item from DB:', {
             product_id: orderedItems[0].product_id,
@@ -889,6 +911,11 @@ export default function OrderHistoryPage() {
                     <button
                       onClick={async () => {
                         // Clear all ordered status for this order
+                        if (!supabase) {
+                          console.warn('Database not available - cannot clear ordered status');
+                          return;
+                        }
+                        
                         try {
                           const { error } = await supabase
                             .from('order_items')

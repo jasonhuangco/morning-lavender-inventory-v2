@@ -1,3 +1,14 @@
+// Debug environment variables in development
+if (import.meta.env.DEV) {
+  console.log('🔧 Environment Variables Debug:');
+  console.log('VITE_SUPABASE_URL:', import.meta.env.VITE_SUPABASE_URL ? '✅ Set' : '❌ Missing');
+  console.log('VITE_SUPABASE_ANON_KEY:', import.meta.env.VITE_SUPABASE_ANON_KEY ? '✅ Set' : '❌ Missing');
+  console.log('VITE_EMAILJS_SERVICE_ID:', import.meta.env.VITE_EMAILJS_SERVICE_ID ? '✅ Set' : '❌ Missing');
+  console.log('VITE_EMAILJS_TEMPLATE_ID:', import.meta.env.VITE_EMAILJS_TEMPLATE_ID ? '✅ Set' : '❌ Missing');
+  console.log('VITE_EMAILJS_PUBLIC_KEY:', import.meta.env.VITE_EMAILJS_PUBLIC_KEY ? '✅ Set' : '❌ Missing');
+  console.log('VITE_GOOGLE_CLIENT_ID:', import.meta.env.VITE_GOOGLE_CLIENT_ID ? '✅ Set' : '❌ Missing');
+}
+
 // Environment configuration
 export const config = {
   supabase: {
@@ -13,6 +24,15 @@ export const config = {
     clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID || '',
   },
 };
+
+// Runtime validation for critical environment variables
+if (!config.supabase.url) {
+  throw new Error('❌ VITE_SUPABASE_URL is required but not set. Please check your environment variables in Vercel dashboard.');
+}
+
+if (!config.supabase.anonKey) {
+  throw new Error('❌ VITE_SUPABASE_ANON_KEY is required but not set. Please check your environment variables in Vercel dashboard.');
+}
 
 // Validation helper
 export const validateConfig = () => {
