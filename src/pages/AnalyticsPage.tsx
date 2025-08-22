@@ -142,28 +142,78 @@ export default function AnalyticsPage() {
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - daysAgo);
 
-      let query = supabase
-        .from('orders')
-        .select(`
-          *,
-          locations(id, name),
-          order_items(
+      let orders, error;
+
+      try {
+        // Try new schema (many-to-many relationships)
+        console.log('🔄 Trying new database schema for analytics...');
+        let query = supabase
+          .from('orders')
+          .select(`
             *,
-            products(
-              id, name, minimum_threshold, cost, category_id, supplier_id,
-              categories(id, name),
-              suppliers(id, name)
+            locations(id, name),
+            order_items(
+              *,
+              products(
+                id, name, minimum_threshold, cost,
+                product_categories(
+                  category_id,
+                  is_primary,
+                  categories(id, name)
+                ),
+                product_suppliers(
+                  supplier_id,
+                  is_primary,
+                  cost_override,
+                  suppliers(id, name)
+                )
+              )
             )
-          )
-        `)
-        .gte('created_at', startDate.toISOString())
-        .order('created_at', { ascending: false });
+          `)
+          .gte('created_at', startDate.toISOString())
+          .order('created_at', { ascending: false });
 
-      if (selectedLocation !== 'all') {
-        query = query.eq('location_id', selectedLocation);
+        if (selectedLocation !== 'all') {
+          query = query.eq('location_id', selectedLocation);
+        }
+
+        const newSchemaResult = await query;
+        if (newSchemaResult.error) throw newSchemaResult.error;
+        
+        orders = newSchemaResult.data;
+        error = null;
+        console.log('✅ New schema query successful for analytics');
+        
+      } catch (newSchemaError: any) {
+        console.log('⚠️ New schema failed for analytics, trying old schema...', newSchemaError.message);
+        
+        // Fallback to old schema (direct foreign keys)
+        let query = supabase
+          .from('orders')
+          .select(`
+            *,
+            locations(id, name),
+            order_items(
+              *,
+              products(
+                id, name, minimum_threshold, cost, category_id, supplier_id,
+                categories(id, name),
+                suppliers(id, name)
+              )
+            )
+          `)
+          .gte('created_at', startDate.toISOString())
+          .order('created_at', { ascending: false });
+
+        if (selectedLocation !== 'all') {
+          query = query.eq('location_id', selectedLocation);
+        }
+
+        const oldSchemaResult = await query;
+        orders = oldSchemaResult.data;
+        error = oldSchemaResult.error;
+        console.log('✅ Old schema query used for analytics');
       }
-
-      const { data: orders, error } = await query;
 
       if (error) {
         console.error('Error loading analytics:', error);
@@ -181,6 +231,45 @@ export default function AnalyticsPage() {
   };
 
   const processAnalyticsData = (orders: any[]): OrderAnalytics => {
+    // Helper functions to extract names from both old and new schemas
+    const getCategoryName = (product: any): string => {
+      // New schema: many-to-many
+      if (product?.product_categories && product.product_categories.length > 0) {
+        const primaryCategory = product.product_categories.find((pc: any) => pc.is_primary);
+        if (primaryCategory?.categories?.name) {
+          return primaryCategory.categories.name;
+        }
+        // Fallback to first category
+        return product.product_categories[0]?.categories?.name || 'Unknown';
+      }
+      
+      // Old schema: direct relationship
+      if (product?.categories?.name) {
+        return product.categories.name;
+      }
+      
+      return 'Unknown';
+    };
+
+    const getSupplierName = (product: any): string => {
+      // New schema: many-to-many
+      if (product?.product_suppliers && product.product_suppliers.length > 0) {
+        const primarySupplier = product.product_suppliers.find((ps: any) => ps.is_primary);
+        if (primarySupplier?.suppliers?.name) {
+          return primarySupplier.suppliers.name;
+        }
+        // Fallback to first supplier
+        return product.product_suppliers[0]?.suppliers?.name || 'Unknown';
+      }
+      
+      // Old schema: direct relationship
+      if (product?.suppliers?.name) {
+        return product.suppliers.name;
+      }
+      
+      return 'Unknown';
+    };
+
     // Product Order Rates
     const productStats = new Map();
     
@@ -193,8 +282,8 @@ export default function AnalyticsPage() {
           productStats.set(productId, {
             product_id: productId,
             product_name: product?.name || 'Unknown',
-            category_name: product?.categories?.name || 'Unknown',
-            supplier_name: product?.suppliers?.name || 'Unknown',
+            category_name: getCategoryName(product),
+            supplier_name: getSupplierName(product),
             total_orders: 0,
             total_quantity_ordered: 0,
             minimum_threshold: product?.minimum_threshold || 0,
@@ -258,7 +347,7 @@ export default function AnalyticsPage() {
         const cost = (item.quantity || 0) * (item.products?.cost || 0);
         stats.total_cost += cost;
         
-        const category = item.products?.categories?.name || 'Unknown';
+        const category = getCategoryName(item.products);
         stats.categories.set(category, (stats.categories.get(category) || 0) + cost);
         
         const product = item.products?.name || 'Unknown';
