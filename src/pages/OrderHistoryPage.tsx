@@ -1,11 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Clock, MapPin, User, Package, FileText, Trash2 } from 'lucide-react';
+import { createClient } from '@supabase/supabase-js';
 import { Order } from '../types';
-import { getSupabaseClient } from '../services/supabase';
+import { config } from '../config/env';
 import { getPrimarySupplier, getProductSuppliers, getProductCategories } from '../utils/productHelpers';
-
-// Get Supabase client using centralized service
-const supabase = getSupabaseClient();
 
 export default function OrderHistoryPage() {
   
@@ -43,23 +41,11 @@ export default function OrderHistoryPage() {
     if (!confirmed) return;
 
     try {
-      // Only attempt database operations if Supabase is available
-      if (!supabase) {
-        console.warn('Database not available - using mock data mode');
-        // Remove from local state only
-        setOrders(prev => prev.filter(order => order.id !== orderId));
-        
-        // Close modal if the deleted order was selected
-        if (selectedOrder?.id === orderId) {
-          setSelectedOrder(null);
-        }
-
-        alert(`Order ${orderNumber} has been removed from view (database not available).`);
-        return;
-      }
+      // Create Supabase client directly
+      const supabaseClient = createClient(config.supabase.url, config.supabase.anonKey);
 
       // Delete the order (order_items will be automatically deleted due to CASCADE)
-      const { error } = await supabase
+      const { error } = await supabaseClient
         .from('orders')
         .delete()
         .eq('id', orderId);
@@ -163,9 +149,10 @@ export default function OrderHistoryPage() {
         ? `${currentUser.first_name} ${currentUser.last_name}`
         : 'Unknown User';
       
-      // Update database (only if not using mock data)
-      if (selectedOrder && selectedOrder.id !== '1' && supabase) { // '1' is our mock order ID
-        const { error } = await supabase
+      // Update database
+      if (selectedOrder && selectedOrder.id !== '1') { // '1' is our mock order ID
+        const supabaseClient = createClient(config.supabase.url, config.supabase.anonKey);
+        const { error } = await supabaseClient
           .from('order_items')
           .update({
             ordered_status: newOrderedStatus,
@@ -253,9 +240,11 @@ export default function OrderHistoryPage() {
       console.log(`Updating order ${orderId} status to ${newStatus}`);
       
       // Update order status in database (only if not using mock data)
-      if (orderId !== '1' && supabase) { // '1' is our mock order ID
+      if (orderId !== '1') { // '1' is our mock order ID
+        const supabaseClient = createClient(config.supabase.url, config.supabase.anonKey);
+        
         // First, check if the order exists
-        const { data: existingOrder, error: fetchError } = await supabase
+        const { data: existingOrder, error: fetchError } = await supabaseClient
           .from('orders')
           .select('id, status, order_number')
           .eq('id', orderId)
@@ -275,7 +264,7 @@ export default function OrderHistoryPage() {
         console.log(`Found existing order: ${existingOrder.order_number}, current status: ${existingOrder.status}`);
 
         // Update the order status
-        const { error } = await supabase
+        const { error } = await supabaseClient
           .from('orders')
           .update({ 
             status: newStatus,
@@ -328,27 +317,43 @@ export default function OrderHistoryPage() {
     try {
       setLoading(true);
       
-      // Check if Supabase is available
-      if (!supabase) {
-        console.warn('Database not available - loading mock data...');
-        throw new Error('Database not available');
-      }
+      // Create Supabase client directly like the submitOrder function does
+      const supabaseClient = createClient(config.supabase.url, config.supabase.anonKey);
       
-      console.log('Loading orders from database...');
+      console.log('🔍 Loading orders from database with credentials:', {
+        hasUrl: !!config.supabase.url,
+        hasKey: !!config.supabase.anonKey,
+        urlPreview: config.supabase.url ? config.supabase.url.substring(0, 20) + '...' : 'none'
+      });
       
       // Load categories and suppliers for helper functions
       const [categoriesResult, suppliersResult] = await Promise.all([
-        supabase.from('categories').select('*'),
-        supabase.from('suppliers').select('*')
+        supabaseClient.from('categories').select('*'),
+        supabaseClient.from('suppliers').select('*')
       ]);
+      
+      if (categoriesResult.error) {
+        console.error('❌ Error loading categories:', categoriesResult.error);
+        throw categoriesResult.error;
+      }
+      
+      if (suppliersResult.error) {
+        console.error('❌ Error loading suppliers:', suppliersResult.error);
+        throw suppliersResult.error;
+      }
       
       const categoriesData = (categoriesResult.data || []) as any[];
       const suppliersData = (suppliersResult.data || []) as any[];
       setCategories(categoriesData);
       setSuppliers(suppliersData);
       
+      console.log('✅ Loaded helper data:', {
+        categories: categoriesData.length,
+        suppliers: suppliersData.length
+      });
+      
       // Fetch orders with related data
-      const { data: ordersData, error } = await supabase
+      const { data: ordersData, error } = await supabaseClient
         .from('orders')
         // Query with many-to-many relationships
         .select(`
@@ -911,13 +916,9 @@ export default function OrderHistoryPage() {
                     <button
                       onClick={async () => {
                         // Clear all ordered status for this order
-                        if (!supabase) {
-                          console.warn('Database not available - cannot clear ordered status');
-                          return;
-                        }
-                        
                         try {
-                          const { error } = await supabase
+                          const supabaseClient = createClient(config.supabase.url, config.supabase.anonKey);
+                          const { error } = await supabaseClient
                             .from('order_items')
                             .update({
                               ordered_status: false,
