@@ -24,10 +24,7 @@ export default function ProductManagement() {
     checkbox_only: false,
     hidden: false,
     categories: [] as Array<{ id: string; is_primary: boolean }>,
-    suppliers: [] as Array<{ id: string; is_primary: boolean; cost_override?: number }>,
-    // Keep old fields for backward compatibility
-    category_id: '',
-    supplier_id: ''
+    suppliers: [] as Array<{ id: string; is_primary: boolean; cost_override?: number }>
   });
 
   // Helper function to create default form data
@@ -40,9 +37,7 @@ export default function ProductManagement() {
     checkbox_only: false,
     hidden: false,
     categories: [] as Array<{ id: string; is_primary: boolean }>,
-    suppliers: [] as Array<{ id: string; is_primary: boolean; cost_override?: number }>,
-    category_id: '',
-    supplier_id: ''
+    suppliers: [] as Array<{ id: string; is_primary: boolean; cost_override?: number }>
   });
 
   // Helper function to create form data from product
@@ -88,9 +83,7 @@ export default function ProductManagement() {
         id: sup.supplier.id, 
         is_primary: sup.supplier.id === getPrimarySupplier(product, suppliers)?.id,
         cost_override: sup.cost_override
-      })),
-      category_id: getPrimaryCategory(product, categories)?.id || '',
-      supplier_id: getPrimarySupplier(product, suppliers)?.id || ''
+      }))
     };
 
     console.log('🔍 Final formData suppliers:', formData.suppliers);
@@ -105,8 +98,7 @@ export default function ProductManagement() {
       const newCategories = [...formData.categories, { id: categoryId, is_primary: formData.categories.length === 0 }];
       setFormData({ 
         ...formData, 
-        categories: newCategories,
-        category_id: newCategories.find(c => c.is_primary)?.id || newCategories[0]?.id || ''
+        categories: newCategories
       });
     } else {
       // Remove category
@@ -117,8 +109,7 @@ export default function ProductManagement() {
       }
       setFormData({ 
         ...formData, 
-        categories: newCategories,
-        category_id: newCategories.find(c => c.is_primary)?.id || ''
+        categories: newCategories
       });
     }
   };
@@ -131,8 +122,7 @@ export default function ProductManagement() {
     }));
     setFormData({ 
       ...formData, 
-      categories: newCategories,
-      category_id: categoryId
+      categories: newCategories
     });
   };
 
@@ -143,8 +133,7 @@ export default function ProductManagement() {
       const newSuppliers = [...formData.suppliers, { id: supplierId, is_primary: formData.suppliers.length === 0 }];
       setFormData({ 
         ...formData, 
-        suppliers: newSuppliers,
-        supplier_id: newSuppliers.find(s => s.is_primary)?.id || newSuppliers[0]?.id || ''
+        suppliers: newSuppliers
       });
     } else {
       // Remove supplier
@@ -155,8 +144,7 @@ export default function ProductManagement() {
       }
       setFormData({ 
         ...formData, 
-        suppliers: newSuppliers,
-        supplier_id: newSuppliers.find(s => s.is_primary)?.id || ''
+        suppliers: newSuppliers
       });
     }
   };
@@ -169,8 +157,7 @@ export default function ProductManagement() {
     }));
     setFormData({ 
       ...formData, 
-      suppliers: newSuppliers,
-      supplier_id: supplierId
+      suppliers: newSuppliers
     });
   };
 
