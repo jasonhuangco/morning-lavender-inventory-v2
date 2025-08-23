@@ -235,7 +235,7 @@ export function BrandingManagement() {
         {/* Color Scheme */}
         <div className="bg-white p-6 rounded-lg shadow lg:col-span-2">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Color Scheme</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 sm:gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Primary Color
@@ -245,13 +245,14 @@ export function BrandingManagement() {
                   type="color"
                   value={formData.primary_color}
                   onChange={(e) => handleInputChange('primary_color', e.target.value)}
-                  className="w-12 h-10 border border-gray-300 rounded cursor-pointer"
+                  className="w-12 h-10 border border-gray-300 rounded cursor-pointer overflow-hidden appearance-none"
+                  style={{ minWidth: '48px', minHeight: '40px' }}
                 />
                 <input
                   type="text"
                   value={formData.primary_color}
                   onChange={(e) => handleInputChange('primary_color', e.target.value)}
-                  className="flex-1 p-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 font-mono"
+                  className="flex-1 p-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 font-mono min-w-0"
                 />
               </div>
               <p className="text-xs text-gray-500 mt-1">Main brand color</p>
@@ -266,13 +267,14 @@ export function BrandingManagement() {
                   type="color"
                   value={formData.secondary_color}
                   onChange={(e) => handleInputChange('secondary_color', e.target.value)}
-                  className="w-12 h-10 border border-gray-300 rounded cursor-pointer"
+                  className="w-12 h-10 border border-gray-300 rounded cursor-pointer overflow-hidden appearance-none"
+                  style={{ minWidth: '48px', minHeight: '40px' }}
                 />
                 <input
                   type="text"
                   value={formData.secondary_color}
                   onChange={(e) => handleInputChange('secondary_color', e.target.value)}
-                  className="flex-1 p-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 font-mono"
+                  className="flex-1 p-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 font-mono min-w-0"
                 />
               </div>
               <p className="text-xs text-gray-500 mt-1">Supporting color</p>
@@ -287,13 +289,14 @@ export function BrandingManagement() {
                   type="color"
                   value={formData.accent_color}
                   onChange={(e) => handleInputChange('accent_color', e.target.value)}
-                  className="w-12 h-10 border border-gray-300 rounded cursor-pointer"
+                  className="w-12 h-10 border border-gray-300 rounded cursor-pointer overflow-hidden appearance-none"
+                  style={{ minWidth: '48px', minHeight: '40px' }}
                 />
                 <input
                   type="text"
                   value={formData.accent_color}
                   onChange={(e) => handleInputChange('accent_color', e.target.value)}
-                  className="flex-1 p-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 font-mono"
+                  className="flex-1 p-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 font-mono min-w-0"
                 />
               </div>
               <p className="text-xs text-gray-500 mt-1">Buttons, highlights</p>
@@ -308,13 +311,14 @@ export function BrandingManagement() {
                   type="color"
                   value={formData.text_color}
                   onChange={(e) => handleInputChange('text_color', e.target.value)}
-                  className="w-12 h-10 border border-gray-300 rounded cursor-pointer"
+                  className="w-12 h-10 border border-gray-300 rounded cursor-pointer overflow-hidden appearance-none"
+                  style={{ minWidth: '48px', minHeight: '40px' }}
                 />
                 <input
                   type="text"
                   value={formData.text_color}
                   onChange={(e) => handleInputChange('text_color', e.target.value)}
-                  className="flex-1 p-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 font-mono"
+                  className="flex-1 p-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 font-mono min-w-0"
                 />
               </div>
               <p className="text-xs text-gray-500 mt-1">Main text color</p>
@@ -329,13 +333,14 @@ export function BrandingManagement() {
                   type="color"
                   value={formData.background_color}
                   onChange={(e) => handleInputChange('background_color', e.target.value)}
-                  className="w-12 h-10 border border-gray-300 rounded cursor-pointer"
+                  className="w-12 h-10 border border-gray-300 rounded cursor-pointer overflow-hidden appearance-none"
+                  style={{ minWidth: '48px', minHeight: '40px' }}
                 />
                 <input
                   type="text"
                   value={formData.background_color}
                   onChange={(e) => handleInputChange('background_color', e.target.value)}
-                  className="flex-1 p-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 font-mono"
+                  className="flex-1 p-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 font-mono min-w-0"
                 />
               </div>
               <p className="text-xs text-gray-500 mt-1">Page background</p>
@@ -449,14 +454,15 @@ export function BrandingManagement() {
                   type="color"
                   value={formData.login_background_color || formData.background_color}
                   onChange={(e) => handleInputChange('login_background_color', e.target.value)}
-                  className="w-12 h-10 border border-gray-300 rounded cursor-pointer"
+                  className="w-12 h-10 border border-gray-300 rounded cursor-pointer overflow-hidden appearance-none"
+                  style={{ minWidth: '48px', minHeight: '40px' }}
                 />
                 <input
                   type="text"
                   value={formData.login_background_color || formData.background_color}
                   onChange={(e) => handleInputChange('login_background_color', e.target.value)}
                   placeholder="Leave empty to use main background color"
-                  className="flex-1 p-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 font-mono"
+                  className="flex-1 p-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 font-mono min-w-0"
                 />
               </div>
               <p className="text-xs text-gray-500 mt-1">Specific background color for login screen</p>

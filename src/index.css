@@ -198,4 +198,47 @@
     color: var(--primary-color) !important;
     filter: brightness(0.8) !important;
   }
+  
+  /* Color input styling for cross-browser compatibility */
+  input[type="color"] {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background: none;
+    border: 0;
+    cursor: pointer;
+    /* Ensure consistent sizing */
+    width: 48px !important;
+    height: 40px !important;
+    min-width: 48px !important;
+    min-height: 40px !important;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  /* Color input swatch (the colored part) */
+  input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+    border: none;
+    border-radius: 6px;
+  }
+
+  input[type="color"]::-webkit-color-swatch {
+    border: none;
+    border-radius: 6px;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+  }
+
+  /* Firefox color picker */
+  input[type="color"]::-moz-color-swatch {
+    border: none;
+    border-radius: 6px;
+  }
+
+  /* Ensure the color input takes full space on desktop */
+  @media (min-width: 768px) {
+    input[type="color"] {
+      flex-shrink: 0;
+    }
+  }
 }

@@ -21,6 +21,12 @@ const defaultBranding: BrandingSettings = {
   accent_color: '#DDA0DD', // Plum
   text_color: '#374151',
   background_color: '#F9FAFB',
+  // Login screen customization
+  login_title: '',
+  login_subtitle: '',
+  login_description: '',
+  login_background_url: '',
+  login_background_color: '',
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString()
 };
@@ -84,6 +90,12 @@ export function BrandingProvider({ children }: BrandingProviderProps) {
         accent_color: settings.accent_color || branding?.accent_color || defaultBranding.accent_color,
         text_color: settings.text_color || branding?.text_color || defaultBranding.text_color,
         background_color: settings.background_color || branding?.background_color || defaultBranding.background_color,
+        // Login customization fields
+        login_title: settings.login_title !== undefined ? settings.login_title : (branding?.login_title || ''),
+        login_subtitle: settings.login_subtitle !== undefined ? settings.login_subtitle : (branding?.login_subtitle || ''),
+        login_description: settings.login_description !== undefined ? settings.login_description : (branding?.login_description || ''),
+        login_background_url: settings.login_background_url !== undefined ? settings.login_background_url : (branding?.login_background_url || ''),
+        login_background_color: settings.login_background_color !== undefined ? settings.login_background_color : (branding?.login_background_color || ''),
         updated_at: new Date().toISOString()
       };
 
@@ -172,7 +184,13 @@ export function BrandingProvider({ children }: BrandingProviderProps) {
         secondary_color: defaultBranding.secondary_color,
         accent_color: defaultBranding.accent_color,
         text_color: defaultBranding.text_color,
-        background_color: defaultBranding.background_color
+        background_color: defaultBranding.background_color,
+        // Reset login customization fields
+        login_title: defaultBranding.login_title,
+        login_subtitle: defaultBranding.login_subtitle,
+        login_description: defaultBranding.login_description,
+        login_background_url: defaultBranding.login_background_url,
+        login_background_color: defaultBranding.login_background_color
       };
       
       await updateBranding(defaultSettings);

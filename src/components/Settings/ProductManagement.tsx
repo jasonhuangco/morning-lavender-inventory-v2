@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Eye, EyeOff, Upload, Download } from 'lucide-react';
+import { Eye, EyeOff, Upload, Download, X, Plus, Minus } from 'lucide-react';
 import { useInventory } from '../../contexts/InventoryContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Product } from '../../types';
@@ -22,6 +22,17 @@ export default function ProductManagement() {
   const [showDeletedProducts, setShowDeletedProducts] = useState(false);
   const [deletedProducts, setDeletedProducts] = useState<Product[]>([]);
   const [loadingDeleted, setLoadingDeleted] = useState(false);
+  
+  // Bulk actions state
+  const [bulkMode, setBulkMode] = useState(false);
+  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
+  const [bulkActionType, setBulkActionType] = useState<string>('');
+  const [selectedBulkCategories, setSelectedBulkCategories] = useState<Set<string>>(new Set());
+  const [selectedBulkSuppliers, setSelectedBulkSuppliers] = useState<Set<string>>(new Set());
+  
+  // Add product form state
+  const [showAddForm, setShowAddForm] = useState(false);
+  
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -221,11 +232,13 @@ export default function ProductManagement() {
   const handleEdit = (product: Product) => {
     setEditingProduct(product);
     setFormData(getFormDataFromProduct(product));
+    setShowAddForm(true); // Show form when editing
   };
 
   const resetForm = () => {
     setEditingProduct(null);
     setFormData(getDefaultFormData());
+    setShowAddForm(false); // Hide form when resetting
   };
 
   const handleDelete = async (id: string) => {
@@ -674,6 +687,224 @@ Paper Cups (16oz),100,25.00,units,false,Supplies,Restaurant Supply Co,Supplies,R
     }
   };
 
+  // Bulk action functions
+  const toggleBulkMode = () => {
+    setBulkMode(!bulkMode);
+    setSelectedProducts(new Set());
+    setBulkActionType('');
+    setSelectedBulkCategories(new Set());
+    setSelectedBulkSuppliers(new Set());
+  };
+
+  const toggleProductSelection = (productId: string) => {
+    const newSelection = new Set(selectedProducts);
+    if (newSelection.has(productId)) {
+      newSelection.delete(productId);
+    } else {
+      newSelection.add(productId);
+    }
+    setSelectedProducts(newSelection);
+  };
+
+  const selectAllProducts = () => {
+    const allProductIds = new Set(filteredProducts.map(p => p.id));
+    setSelectedProducts(allProductIds);
+  };
+
+  const clearSelection = () => {
+    setSelectedProducts(new Set());
+  };
+
+  const bulkDelete = async () => {
+    if (selectedProducts.size === 0) return;
+    
+    const selectedCount = selectedProducts.size;
+    
+    if (!confirm(`Are you sure you want to delete ${selectedCount} selected products? They will be soft-deleted and can be restored later.`)) {
+      return;
+    }
+
+    try {
+      const deletePromises = Array.from(selectedProducts).map(productId => 
+        deleteProduct(productId)
+      );
+      
+      await Promise.all(deletePromises);
+      
+      alert(`Successfully deleted ${selectedCount} products`);
+      setSelectedProducts(new Set());
+    } catch (error) {
+      console.error('Error bulk deleting products:', error);
+      alert('Failed to delete some products. Please try again.');
+    }
+  };
+
+  const bulkUpdateCategories = async (categoryIds: string[], replaceAll: boolean = false) => {
+    if (selectedProducts.size === 0 || categoryIds.length === 0) return;
+
+    const selectedCount = selectedProducts.size;
+    
+    try {
+      const { createClient } = await import('@supabase/supabase-js');
+      const { config } = await import('../../config/env');
+      const supabase = createClient(config.supabase.url, config.supabase.anonKey);
+
+      for (const productId of selectedProducts) {
+        // Remove existing categories if replacing
+        if (replaceAll) {
+          await supabase.from('product_categories').delete().eq('product_id', productId);
+        }
+
+        // Add new categories (avoid duplicates for add mode)
+        for (let index = 0; index < categoryIds.length; index++) {
+          const categoryId = categoryIds[index];
+          
+          // Check if category already exists (for add mode)
+          if (!replaceAll) {
+            const { data: existing } = await supabase
+              .from('product_categories')
+              .select('id')
+              .eq('product_id', productId)
+              .eq('category_id', categoryId)
+              .single();
+            
+            if (existing) continue; // Skip if already exists
+          }
+
+          // Insert the category relationship
+          await supabase.from('product_categories').insert({
+            product_id: productId,
+            category_id: categoryId,
+            is_primary: replaceAll && index === 0 // First category is primary only when replacing
+          });
+        }
+      }
+
+      // Show success message before reload
+      alert(`Successfully updated categories for ${selectedCount} products`);
+      
+      // Clear selection and reload products to reflect changes
+      setSelectedProducts(new Set());
+      window.location.reload();
+    } catch (error) {
+      console.error('Error bulk updating categories:', error);
+      alert('Failed to update categories. Please try again.');
+    }
+  };
+
+  const bulkUpdateSuppliers = async (supplierIds: string[], replaceAll: boolean = false) => {
+    if (selectedProducts.size === 0 || supplierIds.length === 0) return;
+
+    const selectedCount = selectedProducts.size;
+    
+    try {
+      const { createClient } = await import('@supabase/supabase-js');
+      const { config } = await import('../../config/env');
+      const supabase = createClient(config.supabase.url, config.supabase.anonKey);
+
+      for (const productId of selectedProducts) {
+        // Remove existing suppliers if replacing
+        if (replaceAll) {
+          await supabase.from('product_suppliers').delete().eq('product_id', productId);
+        }
+
+        // Add new suppliers (avoid duplicates for add mode)
+        for (let index = 0; index < supplierIds.length; index++) {
+          const supplierId = supplierIds[index];
+          
+          // Check if supplier already exists (for add mode)
+          if (!replaceAll) {
+            const { data: existing } = await supabase
+              .from('product_suppliers')
+              .select('id')
+              .eq('product_id', productId)
+              .eq('supplier_id', supplierId)
+              .single();
+            
+            if (existing) continue; // Skip if already exists
+          }
+
+          // Insert the supplier relationship
+          await supabase.from('product_suppliers').insert({
+            product_id: productId,
+            supplier_id: supplierId,
+            is_primary: replaceAll && index === 0 // First supplier is primary only when replacing
+          });
+        }
+      }
+
+      // Show success message before reload
+      alert(`Successfully updated suppliers for ${selectedCount} products`);
+      
+      // Clear selection and reload products to reflect changes
+      setSelectedProducts(new Set());
+      window.location.reload();
+    } catch (error) {
+      console.error('Error bulk updating suppliers:', error);
+      alert('Failed to update suppliers. Please try again.');
+    }
+  };
+
+  const bulkUpdateField = async (field: string, value: any) => {
+    if (selectedProducts.size === 0) return;
+
+    const selectedCount = selectedProducts.size;
+    
+    try {
+      const updates = Array.from(selectedProducts).map(productId => {
+        const product = products.find(p => p.id === productId);
+        if (!product) return Promise.resolve();
+        
+        return updateProduct(productId, { [field]: value });
+      });
+
+      await Promise.all(updates);
+      
+      alert(`Successfully updated ${field} for ${selectedCount} products`);
+      setSelectedProducts(new Set());
+    } catch (error) {
+      console.error(`Error bulk updating ${field}:`, error);
+      alert(`Failed to update ${field}. Please try again.`);
+    }
+  };
+
+  const bulkExportCsv = () => {
+    if (selectedProducts.size === 0) return;
+
+    const selectedProductData = products.filter(p => selectedProducts.has(p.id));
+    
+    const csvData = [
+      ['Name', 'Description', 'Unit', 'Cost', 'Min Threshold', 'Checkbox Only', 'Hidden', 'Category', 'Supplier'],
+      ...selectedProductData.map(product => [
+        product.name,
+        product.description || '',
+        product.unit,
+        product.cost?.toString() || '0',
+        product.minimum_threshold.toString(),
+        product.checkbox_only.toString(),
+        product.hidden.toString(),
+        getPrimaryCategory(product, categories)?.name || '',
+        getPrimarySupplier(product, suppliers)?.name || ''
+      ])
+    ];
+
+    const csvContent = csvData.map(row => 
+      row.map(field => `"${field.toString().replace(/"/g, '""')}"`).join(',')
+    ).join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `selected-products-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+
+    alert(`Exported ${selectedProducts.size} products to CSV`);
+  };
+
   // Filter categories based on user access
   const availableCategories = categories.filter(category => {
     // If user has no restrictions, show all categories
@@ -830,13 +1061,36 @@ Paper Cups (16oz),100,25.00,units,false,Supplies,Restaurant Supply Co,Supplies,R
         </div>
       )}
       
-      {/* Add/Edit Form */}
-      <div className="bg-gray-50 p-6 rounded-lg max-w-4xl">
-        <h3 className="text-lg font-medium mb-4">
-          {editingProduct ? 'Edit Product' : 'Add New Product'}
-        </h3>
+      {/* Add/Edit Form - Collapsible */}
+      <div className="bg-white border border-gray-200 rounded-lg p-4 max-w-4xl">
+        {/* Add Product Button - Always visible */}
+        <button
+          onClick={() => setShowAddForm(!showAddForm)}
+          className="flex items-center justify-center w-full sm:w-auto bg-primary-600 text-white px-6 py-3 rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors mb-4"
+        >
+          {showAddForm ? (
+            <>
+              <Minus className="w-5 h-5 mr-2" />
+              Hide Add Product Form
+            </>
+          ) : (
+            <>
+              <Plus className="w-5 h-5 mr-2" />
+              Add Product
+            </>
+          )}
+        </button>
+
+        {/* Expanded Form */}
+        {showAddForm && (
+          <div className="bg-gray-50 p-6 rounded-lg -mx-4 -mb-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium">
+                {editingProduct ? 'Edit Product' : 'Add New Product'}
+              </h3>
+            </div>
         
-        <form onSubmit={handleSubmit} className="space-y-4 max-w-3xl">
+            <form onSubmit={handleSubmit} className="space-y-4 max-w-3xl">
           {/* Product Name - Full width on mobile, half width on desktop */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1025,6 +1279,8 @@ Paper Cups (16oz),100,25.00,units,false,Supplies,Restaurant Supply Co,Supplies,R
             )}
           </div>
         </form>
+          </div>
+        )}
       </div>
       
       {/* Products List */}
@@ -1070,8 +1326,267 @@ Paper Cups (16oz),100,25.00,units,false,Supplies,Restaurant Supply Co,Supplies,R
                   Manual Reorder
                 </label>
               </div>
+
+              {/* Bulk Actions Toggle */}
+              <div className="flex items-center space-x-2 pl-4 border-l border-gray-200">
+                <input
+                  type="checkbox"
+                  id="bulk-mode"
+                  checked={bulkMode}
+                  onChange={toggleBulkMode}
+                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                />
+                <label htmlFor="bulk-mode" className="text-sm text-gray-600">
+                  Bulk Actions
+                </label>
+              </div>
             </div>
           </div>
+
+          {/* Bulk Actions Bar */}
+          {bulkMode && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
+                <div className="flex items-center space-x-4">
+                  <span className="text-sm font-medium text-gray-700">
+                    {selectedProducts.size} selected
+                  </span>
+                  <button
+                    onClick={selectAllProducts}
+                    className="text-xs text-blue-600 hover:text-blue-700"
+                  >
+                    Select All ({filteredProducts.length})
+                  </button>
+                  <button
+                    onClick={clearSelection}
+                    className="text-xs text-gray-600 hover:text-gray-700"
+                  >
+                    Clear Selection
+                  </button>
+                </div>
+                
+                {selectedProducts.size > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={bulkDelete}
+                      className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200"
+                    >
+                      Delete ({selectedProducts.size})
+                    </button>
+                    <button
+                      onClick={() => setBulkActionType('categories')}
+                      className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                    >
+                      Set Categories
+                    </button>
+                    <button
+                      onClick={() => setBulkActionType('suppliers')}
+                      className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200"
+                    >
+                      Set Suppliers
+                    </button>
+                    <button
+                      onClick={() => setBulkActionType('visibility')}
+                      className="px-3 py-1 text-xs bg-purple-100 text-purple-700 rounded hover:bg-purple-200"
+                    >
+                      Show/Hide
+                    </button>
+                    <button
+                      onClick={bulkExportCsv}
+                      className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
+                    >
+                      Export CSV
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Bulk Action Modals */}
+          {bulkActionType === 'categories' && selectedProducts.size > 0 && (
+            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-medium text-gray-900">Set Categories for {selectedProducts.size} products</h4>
+                <button
+                  onClick={() => {
+                    setBulkActionType('');
+                    setSelectedBulkCategories(new Set());
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                  {availableCategories.map(category => (
+                    <label key={category.id} className="flex items-center space-x-2 p-2 rounded border hover:bg-gray-50">
+                      <input
+                        type="checkbox"
+                        className="rounded border-gray-300"
+                        checked={selectedBulkCategories.has(category.id)}
+                        onChange={(e) => {
+                          const newSelected = new Set(selectedBulkCategories);
+                          if (e.target.checked) {
+                            newSelected.add(category.id);
+                          } else {
+                            newSelected.delete(category.id);
+                          }
+                          setSelectedBulkCategories(newSelected);
+                        }}
+                      />
+                      <span className="text-sm">{category.name}</span>
+                    </label>
+                  ))}
+                </div>
+                <div className="flex space-x-2 pt-2">
+                  <button
+                    onClick={() => {
+                      if (selectedBulkCategories.size > 0) {
+                        bulkUpdateCategories(Array.from(selectedBulkCategories), false);
+                        setBulkActionType('');
+                        setSelectedBulkCategories(new Set());
+                      } else {
+                        alert('Please select at least one category');
+                      }
+                    }}
+                    disabled={selectedBulkCategories.size === 0}
+                    className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  >
+                    Add Selected Categories
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (selectedBulkCategories.size > 0) {
+                        bulkUpdateCategories(Array.from(selectedBulkCategories), true);
+                        setBulkActionType('');
+                        setSelectedBulkCategories(new Set());
+                      } else {
+                        alert('Please select at least one category');
+                      }
+                    }}
+                    disabled={selectedBulkCategories.size === 0}
+                    className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  >
+                    Replace All Categories
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {bulkActionType === 'suppliers' && selectedProducts.size > 0 && (
+            <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-md">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-medium text-gray-900">Set Suppliers for {selectedProducts.size} products</h4>
+                <button
+                  onClick={() => {
+                    setBulkActionType('');
+                    setSelectedBulkSuppliers(new Set());
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {suppliers.map(supplier => (
+                    <label key={supplier.id} className="flex items-center space-x-2 p-2 rounded border hover:bg-gray-50">
+                      <input
+                        type="checkbox"
+                        className="rounded border-gray-300"
+                        checked={selectedBulkSuppliers.has(supplier.id)}
+                        onChange={(e) => {
+                          const newSelected = new Set(selectedBulkSuppliers);
+                          if (e.target.checked) {
+                            newSelected.add(supplier.id);
+                          } else {
+                            newSelected.delete(supplier.id);
+                          }
+                          setSelectedBulkSuppliers(newSelected);
+                        }}
+                      />
+                      <span className="text-sm">{supplier.name}</span>
+                    </label>
+                  ))}
+                </div>
+                <div className="flex space-x-2 pt-2">
+                  <button
+                    onClick={() => {
+                      if (selectedBulkSuppliers.size > 0) {
+                        bulkUpdateSuppliers(Array.from(selectedBulkSuppliers), false);
+                        setBulkActionType('');
+                        setSelectedBulkSuppliers(new Set());
+                      } else {
+                        alert('Please select at least one supplier');
+                      }
+                    }}
+                    disabled={selectedBulkSuppliers.size === 0}
+                    className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  >
+                    Add Selected Suppliers
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (selectedBulkSuppliers.size > 0) {
+                        bulkUpdateSuppliers(Array.from(selectedBulkSuppliers), true);
+                        setBulkActionType('');
+                        setSelectedBulkSuppliers(new Set());
+                      } else {
+                        alert('Please select at least one supplier');
+                      }
+                    }}
+                    disabled={selectedBulkSuppliers.size === 0}
+                    className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  >
+                    Replace All Suppliers
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {bulkActionType === 'visibility' && selectedProducts.size > 0 && (
+            <div className="mb-4 p-4 bg-purple-50 border border-purple-200 rounded-md">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-medium text-gray-900">Visibility Settings for {selectedProducts.size} products</h4>
+                <button
+                  onClick={() => setBulkActionType('')}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => bulkUpdateField('hidden', false)}
+                  className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200"
+                >
+                  Show All
+                </button>
+                <button
+                  onClick={() => bulkUpdateField('hidden', true)}
+                  className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200"
+                >
+                  Hide All
+                </button>
+                <button
+                  onClick={() => bulkUpdateField('checkbox_only', true)}
+                  className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                >
+                  Make Checkbox-Only
+                </button>
+                <button
+                  onClick={() => bulkUpdateField('checkbox_only', false)}
+                  className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
+                >
+                  Make Quantity-Based
+                </button>
+              </div>
+            </div>
+          )}
           
           {/* Search Box */}
           <div className="mb-4">
@@ -1196,6 +1711,19 @@ Paper Cups (16oz),100,25.00,units,false,Supplies,Restaurant Supply Co,Supplies,R
                     <div className="flex items-start justify-between mb-2">
                       {/* Left side content */}
                       <div className="flex items-center space-x-3 flex-1 min-w-0">
+                        {/* Bulk selection checkbox */}
+                        {bulkMode && (
+                          <div className="flex-shrink-0">
+                            <input
+                              type="checkbox"
+                              checked={selectedProducts.has(product.id)}
+                              onChange={() => toggleProductSelection(product.id)}
+                              className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                            />
+                          </div>
+                        )}
+
+                        {/* Reorder handle */}
                         {reorderMode && (
                           <div className="text-gray-400 hover:text-gray-600 flex-shrink-0">
                             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -1252,7 +1780,7 @@ Paper Cups (16oz),100,25.00,units,false,Supplies,Restaurant Supply Co,Supplies,R
                     </div>
                     
                     {/* Bottom action buttons - horizontal layout */}
-                    {!reorderMode && (
+                    {!reorderMode && !bulkMode && (
                       <div className="flex justify-start space-x-4 pt-1 border-t border-gray-100">
                         <button
                           onClick={() => handleEdit(product)}
