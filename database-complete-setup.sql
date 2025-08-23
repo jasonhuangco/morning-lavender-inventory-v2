@@ -103,7 +103,9 @@ CREATE TABLE orders (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   order_number TEXT NOT NULL UNIQUE,
   location_id UUID REFERENCES locations(id),
+  user_name TEXT NOT NULL, -- User who created the order
   status TEXT CHECK (status IN ('draft', 'pending', 'completed')) DEFAULT 'pending',
+  archived BOOLEAN DEFAULT false NOT NULL, -- Archive status for order management
   notes TEXT,
   order_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -132,6 +134,27 @@ CREATE TABLE draft_orders (
   notes TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create branding_settings table for company customization
+CREATE TABLE branding_settings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_name TEXT NOT NULL DEFAULT 'Morning Lavender',
+    logo_url TEXT,
+    icon_url TEXT,
+    primary_color TEXT NOT NULL DEFAULT '#8B4513',
+    secondary_color TEXT NOT NULL DEFAULT '#E6E6FA',
+    accent_color TEXT NOT NULL DEFAULT '#DDA0DD',
+    text_color TEXT NOT NULL DEFAULT '#374151',
+    background_color TEXT NOT NULL DEFAULT '#F9FAFB',
+    -- Login screen customization
+    login_title TEXT,
+    login_subtitle TEXT,
+    login_description TEXT,
+    login_background_url TEXT,
+    login_background_color TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
 -- Insert sample users (replace with your actual users)
@@ -344,6 +367,7 @@ ALTER TABLE product_suppliers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE draft_orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE branding_settings ENABLE ROW LEVEL SECURITY;
 
 -- Create policies for development/testing (allow all operations)
 -- NOTE: In production, restrict these policies based on user authentication and roles
@@ -359,6 +383,7 @@ CREATE POLICY "Allow all operations" ON product_suppliers FOR ALL USING (true);
 CREATE POLICY "Allow all operations" ON orders FOR ALL USING (true);
 CREATE POLICY "Allow all operations" ON order_items FOR ALL USING (true);
 CREATE POLICY "Allow all operations" ON draft_orders FOR ALL USING (true);
+CREATE POLICY "Allow all operations" ON branding_settings FOR ALL USING (true);
 
 -- Create indexes for better performance
 CREATE INDEX idx_products_sort_order ON products(sort_order);
@@ -374,6 +399,10 @@ CREATE INDEX idx_order_items_order ON order_items(order_id);
 CREATE INDEX idx_order_items_product ON order_items(product_id);
 CREATE INDEX idx_order_items_ordered_status ON order_items(ordered_status);
 CREATE INDEX idx_order_items_ordered_at ON order_items(ordered_at);
+CREATE INDEX idx_orders_archived ON orders(archived);
+CREATE INDEX idx_orders_archived_created_at ON orders(archived, created_at DESC);
+CREATE INDEX idx_orders_status ON orders(status);
+CREATE INDEX idx_orders_location_id ON orders(location_id);
 CREATE INDEX idx_users_login_code ON users(login_code);
 CREATE INDEX idx_users_assigned_categories ON users USING GIN (assigned_categories);
 CREATE INDEX idx_draft_orders_user_location ON draft_orders(user_name, location_id);

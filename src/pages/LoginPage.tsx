@@ -40,8 +40,21 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
+    <div 
+      className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8"
+      style={{
+        backgroundColor: branding?.login_background_color || branding?.background_color || '#F9FAFB',
+        backgroundImage: branding?.login_background_url ? `url(${branding.login_background_url})` : 'none',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center'
+      }}
+    >
+      {/* Background overlay for better text readability when using background image */}
+      {branding?.login_background_url && (
+        <div className="absolute inset-0 bg-black bg-opacity-30"></div>
+      )}
+      
+      <div className="relative max-w-md w-full space-y-8">
         <div>
           <div className="flex justify-center">
             <div className="flex items-center justify-center h-32 w-32 rounded-full bg-primary-100">
@@ -52,14 +65,30 @@ export default function LoginPage() {
               />
             </div>
           </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900" style={{fontFamily: 'Georgia, serif'}}>
-            {branding?.company_name || 'Morning Lavender'}
+          <h2 
+            className="mt-6 text-center text-3xl font-extrabold" 
+            style={{
+              fontFamily: 'Georgia, serif',
+              color: branding?.login_background_url ? '#ffffff' : branding?.text_color || '#111827'
+            }}
+          >
+            {branding?.login_title || branding?.company_name || 'Morning Lavender'}
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Inventory Management System
+          <p 
+            className="mt-2 text-center text-sm"
+            style={{
+              color: branding?.login_background_url ? '#e5e7eb' : branding?.text_color || '#6b7280'
+            }}
+          >
+            {branding?.login_subtitle || 'Inventory Management System'}
           </p>
-          <p className="mt-4 text-center text-xs text-gray-500">
-            Enter your 6-digit homebase code to continue
+          <p 
+            className="mt-4 text-center text-xs"
+            style={{
+              color: branding?.login_background_url ? '#d1d5db' : '#6b7280'
+            }}
+          >
+            {branding?.login_description || 'Enter your 6-digit homebase code to continue'}
           </p>
         </div>
         

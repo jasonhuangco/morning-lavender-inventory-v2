@@ -21,6 +21,12 @@ export interface BrandingSettings {
   accent_color: string;
   text_color: string;
   background_color: string;
+  // Login screen customization
+  login_title?: string;
+  login_subtitle?: string;
+  login_description?: string;
+  login_background_url?: string;
+  login_background_color?: string;
   created_at: string;
   updated_at: string;
 }
