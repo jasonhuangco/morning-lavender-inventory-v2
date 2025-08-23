@@ -21,6 +21,8 @@ export default function OrderHistoryPage() {
   const [showOnlyNeedsOrdering, setShowOnlyNeedsOrdering] = useState(true);
   const [hideCompleted, setHideCompleted] = useState(false);
   const [showArchivedOrders, setShowArchivedOrders] = useState(false);
+  const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
+  const [bulkActionMode, setBulkActionMode] = useState(false);
 
   const handleOrderSelect = (order: Order) => {
     setSelectedOrder(order);
@@ -107,6 +109,67 @@ export default function OrderHistoryPage() {
       console.error('Error archiving order:', error);
       alert('Failed to archive order. Please try again.');
     }
+  };
+
+  const handleBulkArchive = async (shouldArchive: boolean) => {
+    if (selectedOrderIds.size === 0) return;
+
+    try {
+      const supabaseClient = createClient(config.supabase.url, config.supabase.anonKey);
+      const orderIds = Array.from(selectedOrderIds);
+
+      // Update multiple orders in database
+      const { error } = await supabaseClient
+        .from('orders')
+        .update({ archived: shouldArchive })
+        .in('id', orderIds);
+
+      if (error) {
+        console.error('Error bulk archiving orders:', error);
+        alert('Failed to archive orders. Please try again.');
+        return;
+      }
+
+      // Update local state
+      setOrders(prev => prev.map(order => 
+        selectedOrderIds.has(order.id) 
+          ? { ...order, archived: shouldArchive }
+          : order
+      ));
+
+      // Clear selections and exit bulk mode
+      setSelectedOrderIds(new Set());
+      setBulkActionMode(false);
+
+      const action = shouldArchive ? 'archived' : 'unarchived';
+      const count = orderIds.length;
+      alert(`${count} order${count > 1 ? 's' : ''} ${action} successfully.`);
+    } catch (error) {
+      console.error('Error bulk archiving orders:', error);
+      alert('Failed to archive orders. Please try again.');
+    }
+  };
+
+  const toggleOrderSelection = (orderId: string) => {
+    setSelectedOrderIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(orderId)) {
+        newSet.delete(orderId);
+      } else {
+        newSet.add(orderId);
+      }
+      return newSet;
+    });
+  };
+
+  const selectAllVisibleOrders = () => {
+    const visibleOrderIds = new Set(filteredOrders.map(order => order.id));
+    setSelectedOrderIds(visibleOrderIds);
+  };
+
+  const clearSelection = () => {
+    setSelectedOrderIds(new Set());
+    setBulkActionMode(false);
   };
 
   // Get unique locations, months, and years from orders
@@ -827,19 +890,87 @@ export default function OrderHistoryPage() {
             Show archived orders
           </label>
         </div>
+
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => setBulkActionMode(!bulkActionMode)}
+            className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+              bulkActionMode 
+                ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            {bulkActionMode ? 'Exit Bulk Mode' : 'Bulk Actions'}
+          </button>
+        </div>
       </div>
+
+      {/* Bulk Action Bar */}
+      {bulkActionMode && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <span className="text-sm font-medium text-blue-900">
+                {selectedOrderIds.size} order{selectedOrderIds.size !== 1 ? 's' : ''} selected
+              </span>
+              <button
+                onClick={selectAllVisibleOrders}
+                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+              >
+                Select All Visible ({filteredOrders.length})
+              </button>
+              <button
+                onClick={clearSelection}
+                className="text-sm text-gray-600 hover:text-gray-800 font-medium"
+              >
+                Clear Selection
+              </button>
+            </div>
+            
+            {selectedOrderIds.size > 0 && (
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => handleBulkArchive(true)}
+                  className="px-3 py-1 bg-orange-600 text-white text-sm font-medium rounded hover:bg-orange-700 transition-colors"
+                >
+                  Archive Selected ({selectedOrderIds.size})
+                </button>
+                <button
+                  onClick={() => handleBulkArchive(false)}
+                  className="px-3 py-1 bg-green-600 text-white text-sm font-medium rounded hover:bg-green-700 transition-colors"
+                >
+                  Unarchive Selected ({selectedOrderIds.size})
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Orders List */}
       <div className="space-y-4">
         {filteredOrders.map(order => (
           <div
             key={order.id}
-            className={`card hover:shadow-md transition-shadow cursor-pointer ${
+            className={`card hover:shadow-md transition-shadow ${
               order.archived ? 'opacity-60 border-gray-200 bg-gray-50' : ''
-            }`}
-            onClick={() => handleOrderSelect(order)}
+            } ${bulkActionMode ? 'cursor-default' : 'cursor-pointer'}`}
+            onClick={() => !bulkActionMode && handleOrderSelect(order)}
           >
             <div className="flex items-start justify-between">
+              {/* Checkbox for bulk selection */}
+              {bulkActionMode && (
+                <div className="flex items-start pt-1 mr-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedOrderIds.has(order.id)}
+                    onChange={() => toggleOrderSelection(order.id)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                </div>
+              )}
+              
               <div className="flex-1 space-y-2">
                 {/* Order Header */}
                 <div className="flex items-center space-x-4">
