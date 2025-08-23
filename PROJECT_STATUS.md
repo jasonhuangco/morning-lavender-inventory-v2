@@ -2,6 +2,11 @@
 
 ## ✅ Project Complete - Ready for Production
 
+**📋 Future Enhancement Pipeline:**
+- **Purchase Order Tracking** - Track actual purchases vs. inventory counts for accurate cost analysis
+- **Advanced Analytics** - Real spending metrics, supplier performance, purchase frequency analysis
+- See `PURCHASE_TRACKING_ENHANCEMENT.md` for detailed specification
+
 ### 🎯 Final Implementation Status
 
 **All requested features successfully implemented:**

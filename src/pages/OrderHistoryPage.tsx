@@ -1266,6 +1266,25 @@ export default function OrderHistoryPage() {
                       
                       return supplierMatch && wasActuallyCounted && needsOrderingMatch;
                     })
+                    .sort((a, b) => {
+                      // Sort unordered items to top, ordered items to bottom
+                      const aOrdered = Boolean(a.ordered_status);
+                      const bOrdered = Boolean(b.ordered_status);
+                      
+                      if (!aOrdered && bOrdered) return -1; // a (unordered) comes before b (ordered)
+                      if (aOrdered && !bOrdered) return 1;  // b (unordered) comes before a (ordered)
+                      
+                      // Both have same ordered status
+                      if (aOrdered && bOrdered) {
+                        // Both are ordered - sort by ordered_at timestamp (earliest first)
+                        const aOrderedAt = a.ordered_at ? new Date(a.ordered_at).getTime() : 0;
+                        const bOrderedAt = b.ordered_at ? new Date(b.ordered_at).getTime() : 0;
+                        return aOrderedAt - bOrderedAt;
+                      }
+                      
+                      // Both are unordered - maintain original order (or sort by name if desired)
+                      return 0;
+                    })
                     .map((item) => {
                     // For checkbox-only items, don't calculate difference since counted quantity doesn't apply
                     const difference = item.checkbox_only ? 0 : item.minimum_threshold - item.quantity_ordered;

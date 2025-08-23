@@ -25,6 +25,102 @@ interface OrderAnalytics {
   supplierPerformance: SupplierPerformance[];
   seasonalTrends: SeasonalTrend[];
   inventoryHealth: InventoryHealth;
+  reorderingCosts: ReorderingCostAnalysis;
+  spendingTrends: SpendingTrend[];
+  costEfficiency: CostEfficiencyMetrics;
+}
+
+interface ReorderingCostAnalysis {
+  totalSpent: number;
+  averageOrderCost: number;
+  costsByTimePeriod: TimePeriodCost[];
+  mostExpensiveCategories: CategoryCost[];
+  costTrends: {
+    weeklyAverage: number;
+    monthlyAverage: number;
+    trendDirection: 'increasing' | 'decreasing' | 'stable';
+    percentageChange: number;
+  };
+  checkboxOnlyItemsCost: {
+    totalServiceCost: number;
+    averageServiceCostPerOrder: number;
+    topServiceItems: ServiceCostItem[];
+  };
+}
+
+interface TimePeriodCost {
+  period: string; // '2024-01-W1', '2024-01', etc.
+  totalCost: number;
+  orderCount: number;
+  averageCostPerOrder: number;
+  date: Date;
+}
+
+interface CategoryCost {
+  categoryName: string;
+  totalCost: number;
+  percentage: number;
+  orderCount: number;
+  averageCostPerOrder: number;
+}
+
+interface ServiceCostItem {
+  productName: string;
+  timesOrdered: number;
+  costPerService: number;
+  totalCost: number;
+  categoryName: string;
+}
+
+interface SpendingTrend {
+  date: Date;
+  dailySpending: number;
+  cumulativeSpending: number;
+  orderCount: number;
+}
+
+interface CostEfficiencyMetrics {
+  costPerLocation: LocationCostEfficiency[];
+  inventoryTurnover: number;
+  costPerUnit: {
+    average: number;
+    median: number;
+    highest: ProductCostMetric;
+    lowest: ProductCostMetric;
+  };
+  wasteIndicators: {
+    overOrderedItems: OverOrderedItem[];
+    underOrderedItems: UnderOrderedItem[];
+  };
+}
+
+interface LocationCostEfficiency {
+  locationName: string;
+  costPerOrder: number;
+  ordersPerWeek: number;
+  efficiencyScore: number; // Lower cost per order = higher efficiency
+}
+
+interface ProductCostMetric {
+  productName: string;
+  cost: number;
+  categoryName: string;
+}
+
+interface OverOrderedItem {
+  productName: string;
+  averageQuantityOrdered: number;
+  minimumThreshold: number;
+  excessRatio: number;
+  wastedCost: number;
+}
+
+interface UnderOrderedItem {
+  productName: string;
+  averageQuantityOrdered: number;
+  minimumThreshold: number;
+  shortfallRatio: number;
+  potentialSavings: number;
 }
 
 interface ProductOrderRate {
@@ -127,6 +223,45 @@ export default function AnalyticsPage() {
   const [selectedTimeRange, setSelectedTimeRange] = useState('30'); // days
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
   const [activeTab, setActiveTab] = useState('overview');
+
+  // Helper functions to extract names from both old and new schemas
+  const getCategoryName = (product: any): string => {
+    // New schema: many-to-many
+    if (product?.product_categories && product.product_categories.length > 0) {
+      const primaryCategory = product.product_categories.find((pc: any) => pc.is_primary);
+      if (primaryCategory?.categories?.name) {
+        return primaryCategory.categories.name;
+      }
+      // Fallback to first category
+      return product.product_categories[0]?.categories?.name || 'Unknown';
+    }
+    
+    // Old schema: direct relationship
+    if (product?.categories?.name) {
+      return product.categories.name;
+    }
+    
+    return 'Unknown';
+  };
+
+  const getSupplierName = (product: any): string => {
+    // New schema: many-to-many
+    if (product?.product_suppliers && product.product_suppliers.length > 0) {
+      const primarySupplier = product.product_suppliers.find((ps: any) => ps.is_primary);
+      if (primarySupplier?.suppliers?.name) {
+        return primarySupplier.suppliers.name;
+      }
+      // Fallback to first supplier
+      return product.product_suppliers[0]?.suppliers?.name || 'Unknown';
+    }
+    
+    // Old schema: direct relationship
+    if (product?.suppliers?.name) {
+      return product.suppliers.name;
+    }
+    
+    return 'Unknown';
+  };
 
   useEffect(() => {
     loadAnalytics();
@@ -231,45 +366,6 @@ export default function AnalyticsPage() {
   };
 
   const processAnalyticsData = (orders: any[]): OrderAnalytics => {
-    // Helper functions to extract names from both old and new schemas
-    const getCategoryName = (product: any): string => {
-      // New schema: many-to-many
-      if (product?.product_categories && product.product_categories.length > 0) {
-        const primaryCategory = product.product_categories.find((pc: any) => pc.is_primary);
-        if (primaryCategory?.categories?.name) {
-          return primaryCategory.categories.name;
-        }
-        // Fallback to first category
-        return product.product_categories[0]?.categories?.name || 'Unknown';
-      }
-      
-      // Old schema: direct relationship
-      if (product?.categories?.name) {
-        return product.categories.name;
-      }
-      
-      return 'Unknown';
-    };
-
-    const getSupplierName = (product: any): string => {
-      // New schema: many-to-many
-      if (product?.product_suppliers && product.product_suppliers.length > 0) {
-        const primarySupplier = product.product_suppliers.find((ps: any) => ps.is_primary);
-        if (primarySupplier?.suppliers?.name) {
-          return primarySupplier.suppliers.name;
-        }
-        // Fallback to first supplier
-        return product.product_suppliers[0]?.suppliers?.name || 'Unknown';
-      }
-      
-      // Old schema: direct relationship
-      if (product?.suppliers?.name) {
-        return product.suppliers.name;
-      }
-      
-      return 'Unknown';
-    };
-
     // Product Order Rates
     const productStats = new Map();
     
@@ -495,6 +591,11 @@ export default function AnalyticsPage() {
       efficiency_score: efficiencyScore
     };
 
+    // Enhanced Reordering Cost Analysis
+    const reorderingCosts = calculateReorderingCosts(orders, productOrderRates);
+    const spendingTrends = calculateSpendingTrends(orders);
+    const costEfficiency = calculateCostEfficiency(orders, locationCosts, productOrderRates);
+
     return {
       productOrderRates: productOrderRates.sort((a, b) => b.total_orders - a.total_orders),
       locationCosts: locationCosts.sort((a, b) => b.total_cost - a.total_cost),
@@ -504,7 +605,275 @@ export default function AnalyticsPage() {
       categoryAnalysis: categoryAnalysis.sort((a, b) => b.total_cost - a.total_cost),
       supplierPerformance: supplierPerformance.sort((a, b) => b.total_cost - a.total_cost),
       seasonalTrends: [], // Placeholder
-      inventoryHealth
+      inventoryHealth,
+      reorderingCosts,
+      spendingTrends,
+      costEfficiency
+    };
+  };
+
+  // Enhanced Cost Analysis Functions
+  const calculateReorderingCosts = (orders: any[], productData: ProductOrderRate[]): ReorderingCostAnalysis => {
+    const totalSpent = productData.reduce((sum, product) => sum + product.total_cost, 0);
+    const totalOrders = orders.length;
+    const averageOrderCost = totalOrders > 0 ? totalSpent / totalOrders : 0;
+
+    // Calculate costs by time period
+    const costsByTimePeriod = calculateTimePeriodCosts(orders);
+    
+    // Calculate category costs
+    const categoryStats = new Map<string, { cost: number; orders: number }>();
+    productData.forEach(product => {
+      const existing = categoryStats.get(product.category_name) || { cost: 0, orders: 0 };
+      categoryStats.set(product.category_name, {
+        cost: existing.cost + product.total_cost,
+        orders: existing.orders + product.total_orders
+      });
+    });
+
+    const mostExpensiveCategories: CategoryCost[] = Array.from(categoryStats.entries())
+      .map(([categoryName, stats]) => ({
+        categoryName,
+        totalCost: stats.cost,
+        percentage: (stats.cost / totalSpent) * 100,
+        orderCount: stats.orders,
+        averageCostPerOrder: stats.orders > 0 ? stats.cost / stats.orders : 0
+      }))
+      .sort((a, b) => b.totalCost - a.totalCost);
+
+    // Calculate checkbox-only (service) items cost
+    const checkboxOnlyItemsCost = calculateCheckboxOnlyItemsCosts(orders);
+
+    // Calculate trends
+    const costTrends = calculateCostTrends(costsByTimePeriod);
+
+    return {
+      totalSpent,
+      averageOrderCost,
+      costsByTimePeriod,
+      mostExpensiveCategories,
+      costTrends,
+      checkboxOnlyItemsCost
+    };
+  };
+
+  const calculateTimePeriodCosts = (orders: any[]): TimePeriodCost[] => {
+    const periodStats = new Map<string, { cost: number; orders: number; date: Date }>();
+    
+    orders.forEach(order => {
+      const date = new Date(order.created_at);
+      const weekKey = `${date.getFullYear()}-W${Math.ceil(date.getDate() / 7)}`;
+      
+      const orderCost = order.order_items?.reduce((sum: number, item: any) => {
+        const product = item.products;
+        let itemCost = 0;
+        
+        if (product?.checkbox_only) {
+          // For checkbox items, each "check" represents a full service cost
+          itemCost = (item.quantity || 0) * (product.cost || 0);
+        } else {
+          // For regular items, multiply quantity by unit cost
+          itemCost = (item.quantity || 0) * (product.cost || 0);
+        }
+        
+        return sum + itemCost;
+      }, 0) || 0;
+
+      const existing = periodStats.get(weekKey) || { cost: 0, orders: 0, date };
+      periodStats.set(weekKey, {
+        cost: existing.cost + orderCost,
+        orders: existing.orders + 1,
+        date: existing.date < date ? existing.date : date
+      });
+    });
+
+    return Array.from(periodStats.entries())
+      .map(([period, stats]) => ({
+        period,
+        totalCost: stats.cost,
+        orderCount: stats.orders,
+        averageCostPerOrder: stats.orders > 0 ? stats.cost / stats.orders : 0,
+        date: stats.date
+      }))
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
+  };
+
+  const calculateCheckboxOnlyItemsCosts = (orders: any[]) => {
+    const serviceItems = new Map<string, { count: number; cost: number; category: string }>();
+    let totalServiceCost = 0;
+    let serviceOrderCount = 0;
+
+    orders.forEach(order => {
+      let hasServiceItems = false;
+      
+      order.order_items?.forEach((item: any) => {
+        const product = item.products;
+        if (product?.checkbox_only) {
+          hasServiceItems = true;
+          const serviceCost = (item.quantity || 0) * (product.cost || 0);
+          totalServiceCost += serviceCost;
+          
+          const existing = serviceItems.get(product.name) || { 
+            count: 0, 
+            cost: product.cost || 0, 
+            category: getCategoryName(product)
+          };
+          serviceItems.set(product.name, {
+            count: existing.count + (item.quantity || 0),
+            cost: existing.cost,
+            category: existing.category
+          });
+        }
+      });
+      
+      if (hasServiceItems) serviceOrderCount++;
+    });
+
+    const topServiceItems: ServiceCostItem[] = Array.from(serviceItems.entries())
+      .map(([productName, data]) => ({
+        productName,
+        timesOrdered: data.count,
+        costPerService: data.cost,
+        totalCost: data.count * data.cost,
+        categoryName: data.category
+      }))
+      .sort((a, b) => b.totalCost - a.totalCost)
+      .slice(0, 10);
+
+    return {
+      totalServiceCost,
+      averageServiceCostPerOrder: serviceOrderCount > 0 ? totalServiceCost / serviceOrderCount : 0,
+      topServiceItems
+    };
+  };
+
+  const calculateSpendingTrends = (orders: any[]): SpendingTrend[] => {
+    const dailyStats = new Map<string, { spending: number; orders: number }>();
+    
+    orders.forEach(order => {
+      const date = new Date(order.created_at);
+      const dateKey = date.toISOString().split('T')[0];
+      
+      const orderCost = order.order_items?.reduce((sum: number, item: any) => {
+        const product = item.products;
+        return sum + ((item.quantity || 0) * (product?.cost || 0));
+      }, 0) || 0;
+
+      const existing = dailyStats.get(dateKey) || { spending: 0, orders: 0 };
+      dailyStats.set(dateKey, {
+        spending: existing.spending + orderCost,
+        orders: existing.orders + 1
+      });
+    });
+
+    let cumulativeSpending = 0;
+    return Array.from(dailyStats.entries())
+      .map(([dateStr, stats]) => {
+        cumulativeSpending += stats.spending;
+        return {
+          date: new Date(dateStr),
+          dailySpending: stats.spending,
+          cumulativeSpending,
+          orderCount: stats.orders
+        };
+      })
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
+  };
+
+  const calculateCostTrends = (periodCosts: TimePeriodCost[]) => {
+    if (periodCosts.length < 2) {
+      return {
+        weeklyAverage: periodCosts[0]?.totalCost || 0,
+        monthlyAverage: (periodCosts[0]?.totalCost || 0) * 4,
+        trendDirection: 'stable' as const,
+        percentageChange: 0
+      };
+    }
+
+    const weeklyAverage = periodCosts.reduce((sum, period) => sum + period.totalCost, 0) / periodCosts.length;
+    const monthlyAverage = weeklyAverage * 4;
+    
+    const firstHalf = periodCosts.slice(0, Math.floor(periodCosts.length / 2));
+    const secondHalf = periodCosts.slice(Math.floor(periodCosts.length / 2));
+    
+    const firstHalfAvg = firstHalf.reduce((sum, period) => sum + period.totalCost, 0) / firstHalf.length;
+    const secondHalfAvg = secondHalf.reduce((sum, period) => sum + period.totalCost, 0) / secondHalf.length;
+    
+    const percentageChange = ((secondHalfAvg - firstHalfAvg) / firstHalfAvg) * 100;
+    let trendDirection: 'increasing' | 'decreasing' | 'stable' = 'stable';
+    
+    if (Math.abs(percentageChange) > 5) {
+      trendDirection = percentageChange > 0 ? 'increasing' : 'decreasing';
+    }
+
+    return {
+      weeklyAverage,
+      monthlyAverage,
+      trendDirection,
+      percentageChange
+    };
+  };
+
+  const calculateCostEfficiency = (_orders: any[], locationCosts: LocationCost[], productData: ProductOrderRate[]): CostEfficiencyMetrics => {
+    // Location efficiency
+    const costPerLocation: LocationCostEfficiency[] = locationCosts.map(location => {
+      const ordersPerWeek = location.order_frequency_days > 0 ? 7 / location.order_frequency_days : 0;
+      const efficiencyScore = location.avg_order_cost > 0 ? 100 / location.avg_order_cost : 0;
+      
+      return {
+        locationName: location.location_name,
+        costPerOrder: location.avg_order_cost,
+        ordersPerWeek,
+        efficiencyScore
+      };
+    });
+
+    // Cost per unit analysis
+    const costs = productData.map(p => p.cost_per_unit).filter(c => c > 0).sort((a, b) => a - b);
+    const costPerUnit = {
+      average: costs.reduce((sum, cost) => sum + cost, 0) / costs.length,
+      median: costs[Math.floor(costs.length / 2)],
+      highest: productData.reduce((max, p) => p.cost_per_unit > max.cost ? 
+        { productName: p.product_name, cost: p.cost_per_unit, categoryName: p.category_name } : max,
+        { productName: '', cost: 0, categoryName: '' }),
+      lowest: productData.reduce((min, p) => p.cost_per_unit < min.cost && p.cost_per_unit > 0 ? 
+        { productName: p.product_name, cost: p.cost_per_unit, categoryName: p.category_name } : min,
+        { productName: '', cost: Infinity, categoryName: '' })
+    };
+
+    // Waste indicators
+    const overOrderedItems: OverOrderedItem[] = productData
+      .filter(p => p.avg_quantity_per_order > p.minimum_threshold * 1.5)
+      .map(p => ({
+        productName: p.product_name,
+        averageQuantityOrdered: p.avg_quantity_per_order,
+        minimumThreshold: p.minimum_threshold,
+        excessRatio: p.avg_quantity_per_order / p.minimum_threshold,
+        wastedCost: (p.avg_quantity_per_order - p.minimum_threshold) * p.cost_per_unit * p.total_orders
+      }))
+      .sort((a, b) => b.wastedCost - a.wastedCost)
+      .slice(0, 10);
+
+    const underOrderedItems: UnderOrderedItem[] = productData
+      .filter(p => p.avg_quantity_per_order < p.minimum_threshold * 0.8)
+      .map(p => ({
+        productName: p.product_name,
+        averageQuantityOrdered: p.avg_quantity_per_order,
+        minimumThreshold: p.minimum_threshold,
+        shortfallRatio: p.avg_quantity_per_order / p.minimum_threshold,
+        potentialSavings: (p.minimum_threshold - p.avg_quantity_per_order) * p.cost_per_unit * p.total_orders
+      }))
+      .sort((a, b) => b.potentialSavings - a.potentialSavings)
+      .slice(0, 10);
+
+    return {
+      costPerLocation,
+      inventoryTurnover: 0, // Placeholder - would need more data to calculate
+      costPerUnit,
+      wasteIndicators: {
+        overOrderedItems,
+        underOrderedItems
+      }
     };
   };
 
@@ -581,7 +950,7 @@ export default function AnalyticsPage() {
 
           {/* Tab Navigation */}
           <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8">
+            <nav className="-mb-px flex overflow-x-auto scrollbar-hide">
               {[
                 { id: 'overview', name: 'Overview', icon: BarChart3 },
                 { id: 'products', name: 'Product Analysis', icon: Package },
@@ -596,10 +965,13 @@ export default function AnalyticsPage() {
                     activeTab === tab.id
                       ? 'border-primary-500 text-primary-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  } whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2`}
+                  } whitespace-nowrap py-2 px-3 mr-6 border-b-2 font-medium text-sm flex items-center gap-2 flex-shrink-0`}
                 >
                   <tab.icon className="h-4 w-4" />
-                  {tab.name}
+                  <span className="hidden sm:inline">{tab.name}</span>
+                  <span className="sm:hidden">
+                    {tab.name.split(' ')[0]}
+                  </span>
                 </button>
               ))}
             </nav>
@@ -663,6 +1035,164 @@ export default function AnalyticsPage() {
                       <dt className="text-sm font-medium text-gray-500 truncate">Efficiency Score</dt>
                       <dd className="text-lg font-medium text-gray-900">{analytics.inventoryHealth.efficiency_score.toFixed(1)}%</dd>
                     </dl>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Enhanced Reordering Analysis */}
+            <div className="bg-white rounded-lg shadow">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h3 className="text-lg font-medium text-gray-900">Reordering Cost Details</h3>
+                <p className="text-sm text-gray-600 mt-1">Detailed breakdown of what you spend on inventory restocking</p>
+              </div>
+              <div className="p-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  
+                  {/* Regular Items (with quantities) */}
+                  <div>
+                    <h4 className="text-md font-medium text-gray-900 mb-4 flex items-center">
+                      <Package className="h-5 w-5 text-blue-600 mr-2" />
+                      Inventory Items (Quantity-Based)
+                    </h4>
+                    <div className="space-y-3">
+                      {analytics.productOrderRates
+                        .filter(product => {
+                          // Only show products that are likely NOT checkbox-only based on their quantities
+                          return product.avg_quantity_per_order > 1 || product.minimum_threshold > 1;
+                        })
+                        .slice(0, 8)
+                        .map((product, index) => (
+                        <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-gray-900">{product.product_name}</p>
+                            <p className="text-xs text-gray-500">{product.category_name}</p>
+                            <div className="flex items-center mt-1 space-x-3 text-xs text-gray-600">
+                              <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                                {product.avg_quantity_per_order.toFixed(1)} avg counted
+                              </span>
+                              <span>Every {product.order_frequency_days.toFixed(1)} days</span>
+                              <span className="bg-green-100 text-green-800 px-2 py-1 rounded">
+                                Est. {Math.max(0, product.minimum_threshold - product.avg_quantity_per_order + 5).toFixed(0)} bags purchased
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-right ml-4">
+                            <p className="text-sm font-medium text-green-600">
+                              {formatCurrency(product.total_cost)}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              Est. {formatCurrency(Math.max(0, product.minimum_threshold - product.avg_quantity_per_order + 5) * product.cost_per_unit * product.total_orders)} spent restocking
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {formatCurrency((Math.max(0, product.minimum_threshold - product.avg_quantity_per_order + 5) * product.cost_per_unit * product.total_orders) / (Math.max(selectedTimeRange === '7' ? 1 : selectedTimeRange === '30' ? 4 : selectedTimeRange === '90' ? 12 : 52, 1)))} per week
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Checkbox-Only Items (services) */}
+                  <div>
+                    <h4 className="text-md font-medium text-gray-900 mb-4 flex items-center">
+                      <AlertTriangle className="h-5 w-5 text-orange-600 mr-2" />
+                      Service Items (Task-Based)
+                    </h4>
+                    <div className="space-y-3">
+                      {analytics.productOrderRates
+                        .filter(product => {
+                          // Show products that are likely checkbox-only (usually have low quantities and thresholds)
+                          return product.avg_quantity_per_order <= 1 && product.minimum_threshold <= 1;
+                        })
+                        .slice(0, 8)
+                        .map((product, index) => (
+                        <div key={index} className="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-gray-900">{product.product_name}</p>
+                            <p className="text-xs text-gray-500">{product.category_name}</p>
+                            <div className="flex items-center mt-1 space-x-3 text-xs text-gray-600">
+                              <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded">
+                                {product.total_orders} times completed
+                              </span>
+                              <span>Every {product.order_frequency_days.toFixed(1)} days</span>
+                            </div>
+                          </div>
+                          <div className="text-right ml-4">
+                            <p className="text-sm font-medium text-green-600">
+                              {formatCurrency(product.total_cost)}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {formatCurrency(product.cost_per_unit)} per service
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {formatCurrency(product.total_cost / (Math.max(selectedTimeRange === '7' ? 1 : selectedTimeRange === '30' ? 4 : selectedTimeRange === '90' ? 12 : 52, 1)))} per week
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Summary Stats */}
+                <div className="mt-6 pt-6 border-t border-gray-200">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="text-center p-4 bg-blue-50 rounded-lg">
+                      <p className="text-lg font-bold text-blue-600">
+                        {formatCurrency(
+                          analytics.productOrderRates
+                            .filter(p => p.avg_quantity_per_order > 1 || p.minimum_threshold > 1)
+                            .reduce((sum, p) => sum + p.total_cost, 0)
+                        )}
+                      </p>
+                      <p className="text-xs text-gray-600">Inventory Counted Value</p>
+                    </div>
+                    <div className="text-center p-4 bg-green-50 rounded-lg">
+                      <p className="text-lg font-bold text-green-600">
+                        {formatCurrency(
+                          analytics.productOrderRates
+                            .filter(p => p.avg_quantity_per_order > 1 || p.minimum_threshold > 1)
+                            .reduce((sum, p) => sum + (Math.max(0, p.minimum_threshold - p.avg_quantity_per_order + 5) * p.cost_per_unit * p.total_orders), 0)
+                        )}
+                      </p>
+                      <p className="text-xs text-gray-600">Est. Purchase Spending</p>
+                    </div>
+                    <div className="text-center p-4 bg-orange-50 rounded-lg">
+                      <p className="text-lg font-bold text-orange-600">
+                        {formatCurrency(
+                          analytics.productOrderRates
+                            .filter(p => p.avg_quantity_per_order <= 1 && p.minimum_threshold <= 1)
+                            .reduce((sum, p) => sum + p.total_cost, 0)
+                        )}
+                      </p>
+                      <p className="text-xs text-gray-600">Service Items Total</p>
+                    </div>
+                    <div className="text-center p-4 bg-purple-50 rounded-lg">
+                      <p className="text-lg font-bold text-purple-600">
+                        {formatCurrency(
+                          (analytics.productOrderRates
+                            .filter(p => p.avg_quantity_per_order > 1 || p.minimum_threshold > 1)
+                            .reduce((sum, p) => sum + (Math.max(0, p.minimum_threshold - p.avg_quantity_per_order + 5) * p.cost_per_unit * p.total_orders), 0) + 
+                           analytics.productOrderRates
+                            .filter(p => p.avg_quantity_per_order <= 1 && p.minimum_threshold <= 1)
+                            .reduce((sum, p) => sum + p.total_cost, 0)) / 
+                          (Math.max(selectedTimeRange === '7' ? 1 : selectedTimeRange === '30' ? 4 : selectedTimeRange === '90' ? 12 : 52, 1))
+                        )}
+                      </p>
+                      <p className="text-xs text-gray-600">Est. Weekly Spending</p>
+                    </div>
+                  </div>
+                  
+                  {/* Cost Analysis Explanation */}
+                  <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                    <h5 className="text-sm font-medium text-gray-900 mb-2">Cost Analysis Notes:</h5>
+                    <div className="text-xs text-gray-600 space-y-1">
+                      <p><strong>Inventory Counted Value:</strong> Total value of quantities you counted during inventory</p>
+                      <p><strong>Est. Purchase Spending:</strong> Estimated cost of products you actually purchased to restock (calculated as: [minimum_threshold - avg_counted + buffer] × unit_cost × order_frequency)</p>
+                      <p><strong>Service Items:</strong> Checkbox-only items represent completed services/tasks</p>
+                      <p><strong>Limitation:</strong> Purchase estimates are approximations. For accurate spending, implement purchase order tracking.</p>
+                    </div>
                   </div>
                 </div>
               </div>

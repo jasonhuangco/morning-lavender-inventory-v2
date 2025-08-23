@@ -13,6 +13,12 @@ A modern, mobile-first inventory management web application designed for café c
 - **Dynamic Branding**: Customize company name, logo, colors, and app appearance
 - **Mobile-First Design**: Optimized for tablets and mobile devices
 
+## 🔮 Planned Enhancements
+
+- **Purchase Order Tracking**: Track actual purchases vs. inventory counts for accurate cost analysis
+- **Advanced Cost Analytics**: Real spending metrics and supplier performance tracking
+- See `PURCHASE_TRACKING_ENHANCEMENT.md` for detailed roadmap
+
 ## 🛠️ Tech Stack
 
 - **Frontend**: React + TypeScript + Vite
