@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Clock, MapPin, User, Package, FileText, Trash2 } from 'lucide-react';
+import { Clock, MapPin, User, Package, FileText, Trash2, Archive, ArchiveRestore } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 import { Order } from '../types';
 import { config } from '../config/env';
@@ -20,6 +20,7 @@ export default function OrderHistoryPage() {
   const [selectedYear, setSelectedYear] = useState<string>('all');
   const [showOnlyNeedsOrdering, setShowOnlyNeedsOrdering] = useState(true);
   const [hideCompleted, setHideCompleted] = useState(false);
+  const [showArchivedOrders, setShowArchivedOrders] = useState(false);
 
   const handleOrderSelect = (order: Order) => {
     setSelectedOrder(order);
@@ -71,6 +72,43 @@ export default function OrderHistoryPage() {
     }
   };
 
+  const handleArchiveOrder = async (orderId: string, orderNumber: string, isArchived: boolean) => {
+    try {
+      // Create Supabase client directly
+      const supabaseClient = createClient(config.supabase.url, config.supabase.anonKey);
+
+      // Update the order archived status
+      const { error } = await supabaseClient
+        .from('orders')
+        .update({ archived: !isArchived })
+        .eq('id', orderId);
+
+      if (error) {
+        console.error('Error archiving order:', error);
+        alert('Failed to archive order. Please try again.');
+        return;
+      }
+
+      // Update local state
+      setOrders(prev => prev.map(order => 
+        order.id === orderId 
+          ? { ...order, archived: !isArchived }
+          : order
+      ));
+      
+      // Update selectedOrder if it's the one being archived
+      if (selectedOrder?.id === orderId) {
+        setSelectedOrder(prev => prev ? { ...prev, archived: !isArchived } : null);
+      }
+
+      const action = isArchived ? 'unarchived' : 'archived';
+      alert(`Order ${orderNumber} has been ${action} successfully.`);
+    } catch (error) {
+      console.error('Error archiving order:', error);
+      alert('Failed to archive order. Please try again.');
+    }
+  };
+
   // Get unique locations, months, and years from orders
   const getUniqueLocations = () => {
     return Array.from(new Set(orders.map(order => order.location_name))).sort();
@@ -107,8 +145,9 @@ export default function OrderHistoryPage() {
     const monthMatch = selectedMonth === 'all' || orderMonth === parseInt(selectedMonth);
     const yearMatch = selectedYear === 'all' || orderYear === parseInt(selectedYear);
     const statusMatch = !hideCompleted || order.status !== 'completed';
+    const archiveMatch = showArchivedOrders || !order.archived;
 
-    return locationMatch && monthMatch && yearMatch && statusMatch;
+    return locationMatch && monthMatch && yearMatch && statusMatch && archiveMatch;
   });
 
   useEffect(() => {
@@ -459,6 +498,7 @@ export default function OrderHistoryPage() {
           location_name: order.locations?.name || 'Unknown Location',
           user_name: userName,
           status: order.status,
+          archived: order.archived || false,
           created_at: order.created_at,
           updated_at: order.updated_at || order.created_at,
           order_date: order.order_date,
@@ -629,6 +669,7 @@ export default function OrderHistoryPage() {
             }
           ],
           status: 'pending',
+          archived: false,
           created_at: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
           updated_at: new Date(Date.now() - 86400000).toISOString()
         }
@@ -773,6 +814,19 @@ export default function OrderHistoryPage() {
             Hide completed orders
           </label>
         </div>
+
+        <div className="flex items-center space-x-2">
+          <input
+            type="checkbox"
+            id="showArchived"
+            checked={showArchivedOrders}
+            onChange={(e) => setShowArchivedOrders(e.target.checked)}
+            className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+          />
+          <label htmlFor="showArchived" className="text-sm font-medium text-gray-700 cursor-pointer">
+            Show archived orders
+          </label>
+        </div>
       </div>
 
       {/* Orders List */}
@@ -780,7 +834,9 @@ export default function OrderHistoryPage() {
         {filteredOrders.map(order => (
           <div
             key={order.id}
-            className="card hover:shadow-md transition-shadow cursor-pointer"
+            className={`card hover:shadow-md transition-shadow cursor-pointer ${
+              order.archived ? 'opacity-60 border-gray-200 bg-gray-50' : ''
+            }`}
             onClick={() => handleOrderSelect(order)}
           >
             <div className="flex items-start justify-between">
@@ -790,6 +846,12 @@ export default function OrderHistoryPage() {
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
                     {getStatusLabel(order.status)}
                   </span>
+                  
+                  {order.archived && (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                      Archived
+                    </span>
+                  )}
                   
                   <div className="flex items-center text-sm text-gray-500">
                     <Clock className="h-4 w-4 mr-1" />
@@ -812,6 +874,24 @@ export default function OrderHistoryPage() {
               </div>
 
               <div className="flex items-center space-x-2 ml-4">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent opening the modal
+                    handleArchiveOrder(order.id, `#${order.id.slice(-8)}`, order.archived);
+                  }}
+                  className={`transition-colors p-1 ${
+                    order.archived 
+                      ? 'text-gray-400 hover:text-green-600' 
+                      : 'text-gray-400 hover:text-orange-600'
+                  }`}
+                  title={order.archived ? 'Unarchive order' : 'Archive order'}
+                >
+                  {order.archived ? (
+                    <ArchiveRestore className="h-4 w-4" />
+                  ) : (
+                    <Archive className="h-4 w-4" />
+                  )}
+                </button>
                 <button
                   onClick={(e) => {
                     e.stopPropagation(); // Prevent opening the modal

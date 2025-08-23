@@ -121,6 +121,7 @@ export interface Order {
   location_name: string;
   items: OrderItem[];
   status: 'draft' | 'pending' | 'completed';
+  archived: boolean;
   notes?: string;
   created_at: string;
   updated_at: string;
