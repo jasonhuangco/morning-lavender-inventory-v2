@@ -141,9 +141,8 @@ export default function ProductCard({
               </button>
             </div>
           ) : (
-            <div className="text-sm text-gray-600">
-              Checkbox only
-            </div>
+            // For Yes/No ordering items, no quantity controls needed
+            <div></div>
           )}
         </div>
       </div>
@@ -152,17 +151,9 @@ export default function ProductCard({
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-6">
           <div>
-            <span className="text-sm text-gray-600">Minimum: </span>
+            <span className="text-sm text-gray-600">Min: </span>
             <span className="font-semibold">{product.minimum_threshold} {product.unit}</span>
           </div>
-          {!isCheckboxOnly && (
-            <div>
-              <span className="text-sm text-gray-600">Current: </span>
-              <span className={`font-semibold ${isBelowThreshold ? 'text-red-600' : 'text-gray-900'}`}>
-                {localQuantity} {product.unit}
-              </span>
-            </div>
-          )}
         </div>
 
         {/* Order Checkbox - Now truly inline with min/current */}

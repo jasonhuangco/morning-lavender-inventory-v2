@@ -874,7 +874,7 @@ Paper Cups (16oz),100,25.00,units,false,Supplies,Restaurant Supply Co,Supplies,R
     const selectedProductData = products.filter(p => selectedProducts.has(p.id));
     
     const csvData = [
-      ['Name', 'Description', 'Unit', 'Cost', 'Min Threshold', 'Checkbox Only', 'Hidden', 'Category', 'Supplier'],
+      ['Name', 'Description', 'Unit', 'Cost', 'Min Threshold', 'Yes/No Ordering', 'Hidden', 'Category', 'Supplier'],
       ...selectedProductData.map(product => [
         product.name,
         product.description || '',
@@ -1052,7 +1052,7 @@ Paper Cups (16oz),100,25.00,units,false,Supplies,Restaurant Supply Co,Supplies,R
               <ul className="text-sm text-gray-600 space-y-1">
                 <li>• <strong>Required columns:</strong> name, minimum_threshold, cost, unit, checkbox_only, categories, suppliers, primary_category, primary_supplier, supplier_costs</li>
                 <li>• <strong>Multiple values:</strong> Use pipe (|) to separate multiple categories/suppliers (e.g., "Beverages|Specialty")</li>
-                <li>• <strong>Boolean values:</strong> Use "true" or "false" for checkbox_only field</li>
+                <li>• <strong>Boolean values:</strong> Use "true" or "false" for checkbox_only field (Yes/No ordering)</li>
                 <li>• <strong>Categories/Suppliers:</strong> Must match existing names exactly (case-insensitive)</li>
                 <li>• <strong>Primary fields:</strong> Must match one of the categories/suppliers listed</li>
               </ul>
@@ -1243,7 +1243,7 @@ Paper Cups (16oz),100,25.00,units,false,Supplies,Restaurant Supply Co,Supplies,R
               className="mr-2"
             />
             <label htmlFor="checkbox_only" className="text-sm text-gray-700">
-              Checkbox only (no quantity entry)
+              Yes/No ordering (reorder decision only)
             </label>
           </div>
           
@@ -1576,7 +1576,7 @@ Paper Cups (16oz),100,25.00,units,false,Supplies,Restaurant Supply Co,Supplies,R
                   onClick={() => bulkUpdateField('checkbox_only', true)}
                   className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
                 >
-                  Make Checkbox-Only
+                  Make Yes/No Ordering
                 </button>
                 <button
                   onClick={() => bulkUpdateField('checkbox_only', false)}
@@ -1756,10 +1756,10 @@ Paper Cups (16oz),100,25.00,units,false,Supplies,Restaurant Supply Co,Supplies,R
                       {/* Right side - tags and hide/show icon */}
                       <div className="flex items-start flex-col space-y-2 flex-shrink-0 ml-4">
                         <div className="flex items-center justify-end space-x-2 w-full">
-                          {/* Checkbox Only tag */}
+                          {/* Yes/No Ordering tag */}
                           {product.checkbox_only && (
                             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                              Checkbox Only
+                              Yes/No Ordering
                             </span>
                           )}
                           

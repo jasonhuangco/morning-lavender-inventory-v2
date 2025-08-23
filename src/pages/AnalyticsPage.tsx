@@ -366,11 +366,16 @@ export default function AnalyticsPage() {
   };
 
   const processAnalyticsData = (orders: any[]): OrderAnalytics => {
-    // Product Order Rates
+    // Product Order Rates - Only count items that actually need ordering
     const productStats = new Map();
     
     orders.forEach(order => {
       order.order_items?.forEach((item: any) => {
+        // Only process items that actually need to be ordered
+        if (!item.needs_ordering) {
+          return; // Skip items that don't need ordering
+        }
+        
         const productId = item.product_id;
         const product = item.products;
         
@@ -440,6 +445,11 @@ export default function AnalyticsPage() {
       stats.order_dates.push(new Date(order.created_at));
       
       order.order_items?.forEach((item: any) => {
+        // Only count costs for items that actually need ordering
+        if (!item.needs_ordering) {
+          return; // Skip items that don't need ordering
+        }
+        
         const cost = (item.quantity || 0) * (item.products?.cost || 0);
         stats.total_cost += cost;
         

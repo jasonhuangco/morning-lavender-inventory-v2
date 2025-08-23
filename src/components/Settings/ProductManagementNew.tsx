@@ -209,7 +209,7 @@ export default function ProductManagement() {
               className="mr-2"
             />
             <label htmlFor="checkbox_only" className="text-sm text-gray-700">
-              Checkbox only (no quantity entry)
+              Yes/No ordering (reorder decision only)
             </label>
           </div>
           
@@ -257,7 +257,7 @@ export default function ProductManagement() {
                       <h4 className="text-sm font-medium text-gray-900">{product.name}</h4>
                       {product.checkbox_only && (
                         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          Checkbox Only
+                          Yes/No Ordering
                         </span>
                       )}
                     </div>
