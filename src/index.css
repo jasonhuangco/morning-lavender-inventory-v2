@@ -4,12 +4,12 @@
 
 @layer base {
   :root {
-    /* Default branding colors - will be overridden by BrandingContext */
-    --primary-color: #8B4513;
-    --secondary-color: #E6E6FA;
-    --accent-color: #DDA0DD;
-    --text-color: #374151;
-    --background-color: #F9FAFB;
+    /* Default branding colors - can be overridden by environment variables */
+    --primary-color: var(--env-primary-color, #8B4513);
+    --secondary-color: var(--env-secondary-color, #E6E6FA);
+    --accent-color: var(--env-accent-color, #DDA0DD);
+    --text-color: var(--env-text-color, #374151);
+    --background-color: var(--env-background-color, #F9FAFB);
   }
 
   html {

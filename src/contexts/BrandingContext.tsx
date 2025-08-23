@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { createClient } from '@supabase/supabase-js';
 import { BrandingSettings } from '../types';
 import { config } from '../config/env';
+import { getEnvironmentBranding } from '../utils/brandingSSR';
 
 interface BrandingContextType {
   branding: BrandingSettings | null;
@@ -31,6 +32,19 @@ const defaultBranding: BrandingSettings = {
   updated_at: new Date().toISOString()
 };
 
+// Apply branding immediately if available from environment
+const applyInitialBranding = () => {
+  const envBranding = getEnvironmentBranding();
+  if (envBranding) {
+    const root = document.documentElement;
+    root.style.setProperty('--env-primary-color', envBranding.primary_color);
+    root.style.setProperty('--env-secondary-color', envBranding.secondary_color);
+    root.style.setProperty('--env-accent-color', envBranding.accent_color);
+    root.style.setProperty('--env-text-color', envBranding.text_color);
+    root.style.setProperty('--env-background-color', envBranding.background_color);
+  }
+};
+
 const BrandingContext = createContext<BrandingContextType | undefined>(undefined);
 
 interface BrandingProviderProps {
@@ -40,6 +54,11 @@ interface BrandingProviderProps {
 export function BrandingProvider({ children }: BrandingProviderProps) {
   const [branding, setBranding] = useState<BrandingSettings | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Apply initial branding immediately to prevent flash
+  useEffect(() => {
+    applyInitialBranding();
+  }, []);
 
   useEffect(() => {
     loadBranding();
@@ -53,6 +72,9 @@ export function BrandingProvider({ children }: BrandingProviderProps) {
 
   const loadBranding = async () => {
     try {
+      // Get environment branding first (for immediate application)
+      const envBranding = getEnvironmentBranding();
+      
       const supabase = createClient(config.supabase.url, config.supabase.anonKey);
       
       // Get the first branding record (there should only be one)
@@ -63,14 +85,40 @@ export function BrandingProvider({ children }: BrandingProviderProps) {
         .single();
 
       if (error) {
-        console.log('No branding settings found, using defaults');
-        setBranding(defaultBranding);
+        console.log('No branding settings found, using defaults with environment overrides');
+        const finalBranding = envBranding ? {
+          ...defaultBranding,
+          primary_color: envBranding.primary_color,
+          secondary_color: envBranding.secondary_color,
+          accent_color: envBranding.accent_color,
+          text_color: envBranding.text_color,
+          background_color: envBranding.background_color
+        } : defaultBranding;
+        setBranding(finalBranding);
       } else {
-        setBranding(data);
+        // Merge environment branding with database branding (env takes precedence)
+        const finalBranding = envBranding ? {
+          ...data,
+          primary_color: envBranding.primary_color,
+          secondary_color: envBranding.secondary_color,
+          accent_color: envBranding.accent_color,
+          text_color: envBranding.text_color,
+          background_color: envBranding.background_color
+        } : data;
+        setBranding(finalBranding);
       }
     } catch (error) {
       console.error('Error loading branding:', error);
-      setBranding(defaultBranding);
+      const envBranding = getEnvironmentBranding();
+      const finalBranding = envBranding ? {
+        ...defaultBranding,
+        primary_color: envBranding.primary_color,
+        secondary_color: envBranding.secondary_color,
+        accent_color: envBranding.accent_color,
+        text_color: envBranding.text_color,
+        background_color: envBranding.background_color
+      } : defaultBranding;
+      setBranding(finalBranding);
     } finally {
       setLoading(false);
     }
