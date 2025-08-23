@@ -1286,19 +1286,19 @@ Paper Cups (16oz),100,25.00,units,false,Supplies,Restaurant Supply Co,Supplies,R
       {/* Products List */}
       <div className="bg-white rounded-lg shadow">
         <div className="px-6 py-4 border-b border-gray-200">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 space-y-4 sm:space-y-0">
             <h3 className="text-lg font-medium text-gray-900">Current Products</h3>
-            <div className="flex items-center space-x-4">
+            <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
               {/* Auto Sort Dropdown */}
               <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-600">Auto Sort:</span>
+                <span className="text-sm text-gray-600 whitespace-nowrap">Auto Sort:</span>
                 <select
                   onChange={(e) => {
                     setAutoSortValue(e.target.value);
                     handleAutoSort(e.target.value);
                   }}
                   value={autoSortValue}
-                  className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50 disabled:cursor-not-allowed flex-1 sm:flex-none"
                   disabled={reorderMode || selectedCategoryFilter !== 'all' || selectedSupplierFilter !== 'all'}
                   title={
                     selectedCategoryFilter !== 'all' || selectedSupplierFilter !== 'all' 
@@ -1314,7 +1314,7 @@ Paper Cups (16oz),100,25.00,units,false,Supplies,Restaurant Supply Co,Supplies,R
               </div>
               
               {/* Manual Reorder Toggle */}
-              <div className="flex items-center space-x-2 pl-4 border-l border-gray-200">
+              <div className="flex items-center space-x-2 sm:pl-4 sm:border-l sm:border-gray-200">
                 <input
                   type="checkbox"
                   id="reorder-mode"
@@ -1322,13 +1322,13 @@ Paper Cups (16oz),100,25.00,units,false,Supplies,Restaurant Supply Co,Supplies,R
                   onChange={(e) => setReorderMode(e.target.checked)}
                   className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                 />
-                <label htmlFor="reorder-mode" className="text-sm text-gray-600">
+                <label htmlFor="reorder-mode" className="text-sm text-gray-600 whitespace-nowrap">
                   Manual Reorder
                 </label>
               </div>
 
               {/* Bulk Actions Toggle */}
-              <div className="flex items-center space-x-2 pl-4 border-l border-gray-200">
+              <div className="flex items-center space-x-2 sm:pl-4 sm:border-l sm:border-gray-200">
                 <input
                   type="checkbox"
                   id="bulk-mode"
@@ -1336,7 +1336,7 @@ Paper Cups (16oz),100,25.00,units,false,Supplies,Restaurant Supply Co,Supplies,R
                   onChange={toggleBulkMode}
                   className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                 />
-                <label htmlFor="bulk-mode" className="text-sm text-gray-600">
+                <label htmlFor="bulk-mode" className="text-sm text-gray-600 whitespace-nowrap">
                   Bulk Actions
                 </label>
               </div>
