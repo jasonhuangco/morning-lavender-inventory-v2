@@ -128,6 +128,7 @@ interface ProductOrderRate {
   product_name: string;
   category_name: string;
   supplier_name: string;
+  unit: string;
   total_orders: number;
   total_quantity_ordered: number;
   avg_quantity_per_order: number;
@@ -385,6 +386,7 @@ export default function AnalyticsPage() {
             product_name: product?.name || 'Unknown',
             category_name: getCategoryName(product),
             supplier_name: getSupplierName(product),
+            unit: product?.unit || '',
             total_orders: 0,
             total_quantity_ordered: 0,
             minimum_threshold: product?.minimum_threshold || 0,
@@ -1083,7 +1085,7 @@ export default function AnalyticsPage() {
                               </span>
                               <span>Every {product.order_frequency_days.toFixed(1)} days</span>
                               <span className="bg-green-100 text-green-800 px-2 py-1 rounded">
-                                Est. {Math.max(0, product.minimum_threshold - product.avg_quantity_per_order + 5).toFixed(0)} bags purchased
+                                Est. {Math.max(0, product.minimum_threshold - product.avg_quantity_per_order + 5).toFixed(0)} {product.unit} purchased
                               </span>
                             </div>
                           </div>
