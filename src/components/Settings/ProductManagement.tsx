@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Upload, Download } from 'lucide-react';
 import { useInventory } from '../../contexts/InventoryContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Product } from '../../types';
@@ -15,6 +15,10 @@ export default function ProductManagement() {
   const [selectedSupplierFilter, setSelectedSupplierFilter] = useState<string>('all');
   const [autoSortValue, setAutoSortValue] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [showCsvImport, setShowCsvImport] = useState(false);
+  const [csvImportStatus, setCsvImportStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
+  const [csvImportMessage, setCsvImportMessage] = useState('');
+  const [csvImportResults, setCsvImportResults] = useState<{ added: number; errors: string[] }>({ added: 0, errors: [] });
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -364,6 +368,181 @@ export default function ProductManagement() {
     }
   };
 
+  // CSV Import Functions
+  const parseCSV = (csvText: string): string[][] => {
+    const lines = csvText.trim().split('\n');
+    return lines.map(line => {
+      const result: string[] = [];
+      let current = '';
+      let inQuotes = false;
+      
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          result.push(current.trim());
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      result.push(current.trim());
+      return result;
+    });
+  };
+
+  const processCsvData = async (csvData: string[][]) => {
+    const [headers, ...rows] = csvData;
+    const results = { added: 0, errors: [] as string[] };
+    
+    // Expected headers
+    const expectedHeaders = [
+      'name', 'minimum_threshold', 'cost', 'unit', 'checkbox_only', 
+      'categories', 'suppliers', 'primary_category', 'primary_supplier', 'supplier_costs'
+    ];
+    
+    // Validate headers
+    const missingHeaders = expectedHeaders.filter(header => !headers.includes(header));
+    if (missingHeaders.length > 0) {
+      results.errors.push(`Missing required columns: ${missingHeaders.join(', ')}`);
+      return results;
+    }
+    
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const rowNum = i + 2; // +2 because we start from row 1 and header is row 1
+      
+      try {
+        if (row.length === 0 || !row[0]?.trim()) continue; // Skip empty rows
+        
+        const rowData: { [key: string]: string } = {};
+        headers.forEach((header, index) => {
+          rowData[header] = row[index]?.trim() || '';
+        });
+        
+        // Parse categories and suppliers
+        const categoryNames = rowData.categories ? rowData.categories.split('|').map(s => s.trim()) : [];
+        const supplierNames = rowData.suppliers ? rowData.suppliers.split('|').map(s => s.trim()) : [];
+        const supplierCosts = rowData.supplier_costs ? rowData.supplier_costs.split('|').map(s => parseFloat(s.trim()) || 0) : [];
+        
+        // Find category and supplier IDs
+        const productCategories = categoryNames.map(name => {
+          const category = categories.find(c => c.name.toLowerCase() === name.toLowerCase());
+          if (!category) {
+            throw new Error(`Category "${name}" not found`);
+          }
+          return {
+            id: category.id,
+            is_primary: name.toLowerCase() === rowData.primary_category?.toLowerCase()
+          };
+        });
+        
+        const productSuppliers = supplierNames.map((name, index) => {
+          const supplier = suppliers.find(s => s.name.toLowerCase() === name.toLowerCase());
+          if (!supplier) {
+            throw new Error(`Supplier "${name}" not found`);
+          }
+          return {
+            id: supplier.id,
+            is_primary: name.toLowerCase() === rowData.primary_supplier?.toLowerCase(),
+            cost_override: supplierCosts[index] || undefined
+          };
+        });
+        
+        // Ensure at least one primary category and supplier
+        if (productCategories.length > 0 && !productCategories.some(c => c.is_primary)) {
+          productCategories[0].is_primary = true;
+        }
+        if (productSuppliers.length > 0 && !productSuppliers.some(s => s.is_primary)) {
+          productSuppliers[0].is_primary = true;
+        }
+        
+        const productData = {
+          name: rowData.name,
+          minimum_threshold: parseInt(rowData.minimum_threshold) || 1,
+          cost: parseFloat(rowData.cost) || 0,
+          unit: rowData.unit || 'each',
+          checkbox_only: rowData.checkbox_only?.toLowerCase() === 'true',
+          hidden: false,
+          categories: productCategories,
+          suppliers: productSuppliers,
+          // Backward compatibility fields
+          category_id: productCategories.length > 0 ? productCategories.find(c => c.is_primary)?.id || productCategories[0].id : '',
+          supplier_id: productSuppliers.length > 0 ? productSuppliers.find(s => s.is_primary)?.id || productSuppliers[0].id : ''
+        };
+        
+        await addProduct(productData);
+        results.added++;
+        
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        results.errors.push(`Row ${rowNum}: ${errorMsg}`);
+      }
+    }
+    
+    return results;
+  };
+
+  const handleCsvImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    if (!file.name.endsWith('.csv')) {
+      alert('Please select a CSV file');
+      return;
+    }
+    
+    setCsvImportStatus('processing');
+    setCsvImportMessage('Processing CSV file...');
+    
+    try {
+      const text = await file.text();
+      const csvData = parseCSV(text);
+      
+      if (csvData.length < 2) {
+        throw new Error('CSV file must contain at least a header row and one data row');
+      }
+      
+      const results = await processCsvData(csvData);
+      setCsvImportResults(results);
+      
+      if (results.errors.length === 0) {
+        setCsvImportStatus('success');
+        setCsvImportMessage(`Successfully imported ${results.added} products!`);
+      } else {
+        setCsvImportStatus('error');
+        setCsvImportMessage(`Imported ${results.added} products with ${results.errors.length} errors. See details below.`);
+      }
+      
+    } catch (error) {
+      setCsvImportStatus('error');
+      const errorMsg = error instanceof Error ? error.message : 'Failed to process CSV file';
+      setCsvImportMessage(errorMsg);
+      setCsvImportResults({ added: 0, errors: [errorMsg] });
+    }
+    
+    // Reset file input
+    event.target.value = '';
+  };
+
+  const downloadSampleCsv = () => {
+    const sampleData = `name,minimum_threshold,cost,unit,checkbox_only,categories,suppliers,primary_category,primary_supplier,supplier_costs
+Colombian Coffee Beans,10,12.50,lbs,false,Beverages,Costco|Restaurant Supply Co,Beverages,Costco,12.50|15.00
+Vanilla Syrup,5,8.99,bottles,false,Beverages,Beverage Distributor,Beverages,Beverage Distributor,8.99
+Paper Cups (16oz),100,25.00,units,false,Supplies,Restaurant Supply Co,Supplies,Restaurant Supply Co,25.00`;
+    
+    const blob = new Blob([sampleData], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'sample-products-import.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  };
+
   // Filter categories based on user access
   const availableCategories = categories.filter(category => {
     // If user has no restrictions, show all categories
@@ -401,7 +580,124 @@ export default function ProductManagement() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-semibold text-gray-900">Product Management</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-semibold text-gray-900">Product Management</h2>
+        
+        {/* CSV Import Actions */}
+        <div className="flex items-center space-x-3">
+          <button
+            type="button"
+            onClick={downloadSampleCsv}
+            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Sample CSV
+          </button>
+          
+          <button
+            type="button"
+            onClick={() => setShowCsvImport(!showCsvImport)}
+            className="inline-flex items-center px-3 py-2 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Import CSV
+          </button>
+        </div>
+      </div>
+
+      {/* CSV Import Section */}
+      {showCsvImport && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-medium text-blue-900">Import Products from CSV</h3>
+              <p className="text-sm text-blue-700 mt-1">
+                Upload a CSV file to bulk import products. Download the sample CSV to see the required format.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowCsvImport(false)}
+              className="text-blue-400 hover:text-blue-600"
+            >
+              ×
+            </button>
+          </div>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-blue-900 mb-2">
+                Select CSV File
+              </label>
+              <input
+                type="file"
+                accept=".csv"
+                onChange={handleCsvImport}
+                className="block w-full text-sm text-blue-900 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700"
+              />
+            </div>
+            
+            {/* Import Status */}
+            {csvImportStatus !== 'idle' && (
+              <div className={`p-4 rounded-md ${
+                csvImportStatus === 'success' ? 'bg-green-50 border border-green-200' :
+                csvImportStatus === 'error' ? 'bg-red-50 border border-red-200' :
+                'bg-yellow-50 border border-yellow-200'
+              }`}>
+                <div className="flex items-start">
+                  <div className="flex-shrink-0">
+                    {csvImportStatus === 'success' && (
+                      <div className="h-5 w-5 text-green-400">✓</div>
+                    )}
+                    {csvImportStatus === 'error' && (
+                      <div className="h-5 w-5 text-red-400">✗</div>
+                    )}
+                    {csvImportStatus === 'processing' && (
+                      <div className="h-5 w-5 text-yellow-400">⏳</div>
+                    )}
+                  </div>
+                  <div className="ml-3">
+                    <h4 className={`text-sm font-medium ${
+                      csvImportStatus === 'success' ? 'text-green-800' :
+                      csvImportStatus === 'error' ? 'text-red-800' :
+                      'text-yellow-800'
+                    }`}>
+                      {csvImportMessage}
+                    </h4>
+                    
+                    {/* Error Details */}
+                    {csvImportResults.errors.length > 0 && (
+                      <div className="mt-2">
+                        <details className="text-sm text-red-700">
+                          <summary className="cursor-pointer font-medium">
+                            View Error Details ({csvImportResults.errors.length})
+                          </summary>
+                          <ul className="mt-2 list-disc list-inside space-y-1">
+                            {csvImportResults.errors.map((error, index) => (
+                              <li key={index}>{error}</li>
+                            ))}
+                          </ul>
+                        </details>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* CSV Format Help */}
+            <div className="bg-white p-4 rounded border">
+              <h4 className="text-sm font-medium text-gray-900 mb-2">CSV Format Requirements:</h4>
+              <ul className="text-sm text-gray-600 space-y-1">
+                <li>• <strong>Required columns:</strong> name, minimum_threshold, cost, unit, checkbox_only, categories, suppliers, primary_category, primary_supplier, supplier_costs</li>
+                <li>• <strong>Multiple values:</strong> Use pipe (|) to separate multiple categories/suppliers (e.g., "Beverages|Specialty")</li>
+                <li>• <strong>Boolean values:</strong> Use "true" or "false" for checkbox_only field</li>
+                <li>• <strong>Categories/Suppliers:</strong> Must match existing names exactly (case-insensitive)</li>
+                <li>• <strong>Primary fields:</strong> Must match one of the categories/suppliers listed</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Add/Edit Form */}
       <div className="bg-gray-50 p-6 rounded-lg max-w-4xl">

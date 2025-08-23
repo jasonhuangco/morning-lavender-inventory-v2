@@ -1,0 +1,11 @@
+name,minimum_threshold,cost,unit,checkbox_only,categories,suppliers,primary_category,primary_supplier,supplier_costs
+Colombian Coffee Beans,10,12.50,lbs,false,Beverages,Costco|Restaurant Supply Co,Beverages,Costco,12.50|15.00
+Vanilla Syrup,5,8.99,bottles,false,Beverages,Beverage Distributor,Beverages,Beverage Distributor,8.99
+Paper Cups (16oz),100,25.00,units,false,Supplies,Restaurant Supply Co,Supplies,Restaurant Supply Co,25.00
+Cleaning Supplies,1,15.00,units,true,Cleaning,Costco,Cleaning,Costco,15.00
+Oat Milk,8,4.50,cartons,false,Beverages,Costco|Local Grocery,Beverages,Costco,4.50|5.25
+Napkins,50,12.00,packs,false,Supplies,Restaurant Supply Co|Costco,Supplies,Restaurant Supply Co,12.00|14.00
+Espresso Beans,12,18.75,lbs,false,Beverages,Coffee Roaster|Premium Supplier,Beverages,Coffee Roaster,18.75|22.00
+Sanitizer,2,8.50,bottles,true,Cleaning,Restaurant Supply Co,Cleaning,Restaurant Supply Co,8.50
+Lids (16oz),200,15.00,units,false,Supplies,Restaurant Supply Co,Supplies,Restaurant Supply Co,15.00
+Lavender Syrup,3,11.50,bottles,false,Beverages|Specialty,Specialty Distributor,Beverages,Specialty Distributor,11.50
