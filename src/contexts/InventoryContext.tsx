@@ -617,22 +617,26 @@ export function InventoryProvider({ children }: InventoryProviderProps) {
     const supabase = createClient(config.supabase.url, config.supabase.anonKey);
     
     try {
+      // Soft delete: set deleted_at timestamp instead of actually deleting
       const { error } = await supabase
         .from('products')
-        .delete()
+        .update({ 
+          deleted_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
         .eq('id', id);
 
       if (error) {
-        console.error('Error deleting product:', error);
+        console.error('Error soft deleting product:', error);
         throw error;
       }
 
-      // Remove from local state
+      // Remove from local state (UI will no longer show it)
       setProducts(prev => prev.filter(product => product.id !== id));
       
-      console.log('✅ Product deleted successfully');
+      console.log('✅ Product soft deleted successfully (preserved for order history)');
     } catch (error) {
-      console.error('❌ Failed to delete product:', error);
+      console.error('❌ Failed to soft delete product:', error);
       throw error;
     }
   };

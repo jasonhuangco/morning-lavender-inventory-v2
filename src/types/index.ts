@@ -89,6 +89,7 @@ export interface Product {
   minimum_threshold: number;
   checkbox_only: boolean;
   hidden: boolean; // Whether this product is hidden from inventory lists
+  deleted_at?: string; // Soft deletion timestamp
   current_quantity?: number; // This will come from inventory_counts
   sort_order: number;
   created_at: string;

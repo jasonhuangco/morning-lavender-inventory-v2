@@ -33,7 +33,7 @@ export const supabaseService = {
     console.log('🔍 Fetching products with relationships from database...');
     
     try {
-      // Fetch products with junction table relationships
+      // Fetch products with junction table relationships (excluding soft-deleted)
       const { data, error } = await client
         .from('products')
         .select(`
@@ -54,6 +54,7 @@ export const supabaseService = {
             suppliers (*)
           )
         `)
+        .is('deleted_at', null) // Only fetch non-deleted products
         .order('sort_order');
       
       if (error) {

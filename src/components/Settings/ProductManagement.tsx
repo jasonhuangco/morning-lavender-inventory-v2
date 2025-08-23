@@ -19,6 +19,9 @@ export default function ProductManagement() {
   const [csvImportStatus, setCsvImportStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
   const [csvImportMessage, setCsvImportMessage] = useState('');
   const [csvImportResults, setCsvImportResults] = useState<{ added: number; errors: string[] }>({ added: 0, errors: [] });
+  const [showDeletedProducts, setShowDeletedProducts] = useState(false);
+  const [deletedProducts, setDeletedProducts] = useState<Product[]>([]);
+  const [loadingDeleted, setLoadingDeleted] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -541,6 +544,134 @@ Paper Cups (16oz),100,25.00,units,false,Supplies,Restaurant Supply Co,Supplies,R
     a.click();
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
+  };
+
+  // Functions for managing deleted products
+  const loadDeletedProducts = async () => {
+    setLoadingDeleted(true);
+    try {
+      const { createClient } = await import('@supabase/supabase-js');
+      const { config } = await import('../../config/env');
+      const supabase = createClient(config.supabase.url, config.supabase.anonKey);
+      
+      const { data, error } = await supabase
+        .from('products')
+        .select(`
+          *,
+          product_categories (
+            id,
+            category_id,
+            is_primary,
+            created_at,
+            categories (*)
+          ),
+          product_suppliers (
+            id,
+            supplier_id,
+            is_primary,
+            cost_override,
+            created_at,
+            suppliers (*)
+          )
+        `)
+        .not('deleted_at', 'is', null)
+        .order('deleted_at', { ascending: false });
+
+      if (error) {
+        console.error('Error loading deleted products:', error);
+        return;
+      }
+
+      // Transform data similar to the main products
+      const transformedData = data?.map((product: any) => {
+        const productCategories = Array.isArray(product.product_categories) ? product.product_categories : [];
+        const productSuppliers = Array.isArray(product.product_suppliers) ? product.product_suppliers : [];
+        
+        return {
+          ...product,
+          category_id: productCategories.find((pc: any) => pc.is_primary)?.category_id,
+          supplier_id: productSuppliers.find((ps: any) => ps.is_primary)?.supplier_id,
+          primary_category: productCategories.find((pc: any) => pc.is_primary)?.categories,
+          primary_supplier: productSuppliers.find((ps: any) => ps.is_primary)?.suppliers,
+        };
+      }) || [];
+
+      setDeletedProducts(transformedData);
+    } catch (error) {
+      console.error('Error loading deleted products:', error);
+    } finally {
+      setLoadingDeleted(false);
+    }
+  };
+
+  const restoreProduct = async (id: string) => {
+    try {
+      const { createClient } = await import('@supabase/supabase-js');
+      const { config } = await import('../../config/env');
+      const supabase = createClient(config.supabase.url, config.supabase.anonKey);
+      
+      const { error } = await supabase
+        .from('products')
+        .update({ 
+          deleted_at: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+
+      if (error) {
+        console.error('Error restoring product:', error);
+        alert('Failed to restore product');
+        return;
+      }
+
+      // Remove from deleted products list
+      setDeletedProducts(prev => prev.filter(p => p.id !== id));
+      
+      // Reload main products to show the restored product
+      window.location.reload(); // Simple reload to refresh all data
+      
+      alert('Product restored successfully!');
+    } catch (error) {
+      console.error('Error restoring product:', error);
+      alert('Failed to restore product');
+    }
+  };
+
+  const permanentlyDeleteProduct = async (id: string, productName: string) => {
+    if (!confirm(`Are you sure you want to PERMANENTLY DELETE "${productName}"? This action cannot be undone and will remove all associated order history.`)) {
+      return;
+    }
+
+    try {
+      const { createClient } = await import('@supabase/supabase-js');
+      const { config } = await import('../../config/env');
+      const supabase = createClient(config.supabase.url, config.supabase.anonKey);
+      
+      // First delete related records
+      await supabase.from('order_items').delete().eq('product_id', id);
+      await supabase.from('product_categories').delete().eq('product_id', id);
+      await supabase.from('product_suppliers').delete().eq('product_id', id);
+      
+      // Then delete the product
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.error('Error permanently deleting product:', error);
+        alert('Failed to permanently delete product');
+        return;
+      }
+
+      // Remove from deleted products list
+      setDeletedProducts(prev => prev.filter(p => p.id !== id));
+      
+      alert('Product permanently deleted!');
+    } catch (error) {
+      console.error('Error permanently deleting product:', error);
+      alert('Failed to permanently delete product');
+    }
   };
 
   // Filter categories based on user access
@@ -1149,6 +1280,93 @@ Paper Cups (16oz),100,25.00,units,false,Supplies,Restaurant Supply Co,Supplies,R
             />
           )}
         </div>
+      </div>
+
+      {/* Deleted Products Management */}
+      <div className="bg-white p-6 rounded-lg shadow">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-medium text-gray-900">Deleted Products</h3>
+          <div className="flex space-x-2">
+            {!showDeletedProducts && (
+              <button
+                onClick={() => {
+                  setShowDeletedProducts(true);
+                  loadDeletedProducts();
+                }}
+                className="px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+              >
+                Show Deleted Products
+              </button>
+            )}
+            {showDeletedProducts && (
+              <button
+                onClick={() => setShowDeletedProducts(false)}
+                className="px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+              >
+                Hide Deleted Products
+              </button>
+            )}
+          </div>
+        </div>
+
+        {showDeletedProducts && (
+          <div className="space-y-4">
+            {loadingDeleted ? (
+              <div className="text-center py-4">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
+                <p className="text-gray-500 mt-2">Loading deleted products...</p>
+              </div>
+            ) : deletedProducts.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <p>No deleted products found.</p>
+                <p className="text-sm mt-1">Deleted products preserve order history while being hidden from active use.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="text-sm text-gray-600 mb-4 p-3 bg-blue-50 rounded-md">
+                  <strong>Soft Deletion:</strong> These products were deleted but preserved to maintain order history. 
+                  You can restore them to active use or permanently delete them (which will remove all order history).
+                </div>
+                
+                {deletedProducts.map((product) => (
+                  <div key={product.id} className="border border-red-200 rounded-lg p-4 bg-red-50">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <h4 className="font-medium text-gray-900">{product.name}</h4>
+                        <p className="text-sm text-gray-600 mt-1">{product.description}</p>
+                        <div className="flex space-x-4 text-xs text-gray-500 mt-2">
+                          <span>Unit: {product.unit}</span>
+                          <span>Cost: ${product.cost?.toFixed(2) || '0.00'}</span>
+                          <span>Min Threshold: {product.minimum_threshold}</span>
+                          <span>Category: {product.primary_category?.name || 'No category'}</span>
+                          <span>Supplier: {product.primary_supplier?.name || 'No supplier'}</span>
+                        </div>
+                        <div className="text-xs text-red-600 mt-2">
+                          Deleted: {product.deleted_at ? new Date(product.deleted_at).toLocaleString() : 'Unknown'}
+                        </div>
+                      </div>
+                      
+                      <div className="flex space-x-2 ml-4">
+                        <button
+                          onClick={() => restoreProduct(product.id)}
+                          className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"
+                        >
+                          Restore
+                        </button>
+                        <button
+                          onClick={() => permanentlyDeleteProduct(product.id, product.name)}
+                          className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
+                        >
+                          Delete Forever
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

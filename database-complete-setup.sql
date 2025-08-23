@@ -72,6 +72,7 @@ CREATE TABLE products (
   minimum_threshold INTEGER NOT NULL DEFAULT 1,
   checkbox_only BOOLEAN DEFAULT FALSE,
   hidden BOOLEAN DEFAULT FALSE,
+  deleted_at TIMESTAMP WITH TIME ZONE, -- Soft deletion timestamp
   sort_order INTEGER DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -116,7 +117,7 @@ CREATE TABLE orders (
 CREATE TABLE order_items (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
-  product_id UUID REFERENCES products(id),
+  product_id UUID REFERENCES products(id) ON DELETE CASCADE,
   quantity INTEGER NOT NULL,
   needs_ordering BOOLEAN DEFAULT FALSE,
   ordered_status BOOLEAN DEFAULT FALSE,
@@ -387,6 +388,8 @@ CREATE POLICY "Allow all operations" ON branding_settings FOR ALL USING (true);
 
 -- Create indexes for better performance
 CREATE INDEX idx_products_sort_order ON products(sort_order);
+CREATE INDEX idx_products_deleted_at ON products(deleted_at) WHERE deleted_at IS NOT NULL;
+CREATE INDEX idx_products_active ON products(deleted_at) WHERE deleted_at IS NULL;
 CREATE INDEX idx_product_categories_product ON product_categories(product_id);
 CREATE INDEX idx_product_categories_category ON product_categories(category_id);
 CREATE INDEX idx_product_categories_primary ON product_categories(product_id, is_primary);
