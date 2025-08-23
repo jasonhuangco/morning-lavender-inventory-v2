@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Eye, EyeOff, Upload, Download, X, Plus, Minus } from 'lucide-react';
+import { Eye, EyeOff, Upload, Download, X, Plus, Minus, Edit2, Copy, Trash2 } from 'lucide-react';
 import { useInventory } from '../../contexts/InventoryContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Product } from '../../types';
@@ -1753,55 +1753,60 @@ Paper Cups (16oz),100,25.00,units,false,Supplies,Restaurant Supply Co,Supplies,R
                         </div>
                       </div>
                       
-                      {/* Right side - tags and hide/show icon only */}
-                      <div className="flex items-center space-x-2 flex-shrink-0 ml-4">
-                        {/* Checkbox Only tag */}
-                        {product.checkbox_only && (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            Checkbox Only
-                          </span>
-                        )}
-                        
-                        {/* Hide/Show icon */}
-                        {!reorderMode && (
-                          <button
-                            onClick={() => toggleProductVisibility(product.id, product.hidden || false)}
-                            className={`text-sm font-medium px-2 py-1 ${
-                              product.hidden 
-                                ? 'text-gray-400 hover:text-gray-600' 
-                                : 'text-green-600 hover:text-green-700'
-                            }`}
-                            title={product.hidden ? 'Show in inventory' : 'Hide from inventory'}
-                          >
-                            {product.hidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                          </button>
+                      {/* Right side - tags and hide/show icon */}
+                      <div className="flex items-start flex-col space-y-2 flex-shrink-0 ml-4">
+                        <div className="flex items-center justify-end space-x-2 w-full">
+                          {/* Checkbox Only tag */}
+                          {product.checkbox_only && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              Checkbox Only
+                            </span>
+                          )}
+                          
+                          {/* Hide/Show icon - always at right edge */}
+                          {!reorderMode && (
+                            <button
+                              onClick={() => toggleProductVisibility(product.id, product.hidden || false)}
+                              className={`text-sm font-medium px-2 py-1 ${
+                                product.hidden 
+                                  ? 'text-gray-400 hover:text-gray-600' 
+                                  : 'text-green-600 hover:text-green-700'
+                              }`}
+                              title={product.hidden ? 'Show in inventory' : 'Hide from inventory'}
+                            >
+                              {product.hidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Action buttons - edit, duplicate, delete - on separate line below */}
+                        {!reorderMode && !bulkMode && (
+                          <div className="flex items-center space-x-2 self-end">
+                            <button
+                              onClick={() => handleEdit(product)}
+                              className="text-primary-600 hover:text-primary-700 p-1 rounded hover:bg-primary-50"
+                              title="Edit"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDuplicate(product)}
+                              className="text-blue-600 hover:text-blue-700 p-1 rounded hover:bg-blue-50"
+                              title="Duplicate"
+                            >
+                              <Copy className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(product.id)}
+                              className="text-red-600 hover:text-red-700 p-1 rounded hover:bg-red-50"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
-                    
-                    {/* Bottom action buttons - horizontal layout */}
-                    {!reorderMode && !bulkMode && (
-                      <div className="flex justify-start space-x-4 pt-1 border-t border-gray-100">
-                        <button
-                          onClick={() => handleEdit(product)}
-                          className="text-primary-600 hover:text-primary-700 text-xs font-medium"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDuplicate(product)}
-                          className="text-blue-600 hover:text-blue-700 text-xs font-medium"
-                        >
-                          Duplicate
-                        </button>
-                        <button
-                          onClick={() => handleDelete(product.id)}
-                          className="text-red-600 hover:text-red-700 text-xs font-medium"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    )}
                   </div>
                 );
               }}
