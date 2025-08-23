@@ -19,37 +19,37 @@ export default function SettingsPage() {
       id: 'locations' as const,
       name: 'Locations',
       icon: MapPin,
-      description: 'Manage café locations'
+      helpContent: 'Add and manage café locations. Each location can have its own inventory counts and order requirements. Use locations to organize your inventory by physical store locations.'
     },
     {
       id: 'categories' as const,
       name: 'Categories',
       icon: Tag,
-      description: 'Manage product categories'
+      helpContent: 'Create product categories to organize your inventory. Categories help with filtering during inventory counts and can be used to restrict user access to specific product types.'
     },
     {
       id: 'suppliers' as const,
       name: 'Suppliers',
       icon: Truck,
-      description: 'Manage suppliers'
+      helpContent: 'Manage your supplier information including contact details and ordering preferences. Suppliers are linked to products and used when generating orders.'
     },
     {
       id: 'products' as const,
       name: 'Products',
       icon: Package,
-      description: 'Manage inventory products'
+      helpContent: 'Add and manage all inventory products. Set minimum thresholds, assign categories and suppliers, and configure whether items require quantity counts or are checkbox-only.'
     },
     {
       id: 'users' as const,
       name: 'Users',
       icon: Users,
-      description: 'Manage user accounts and login codes'
+      helpContent: 'Manage user accounts and access codes. Create login codes for staff, assign category restrictions, and control who can access different parts of the inventory system.'
     },
     {
       id: 'branding' as const,
       name: 'Branding',
       icon: Palette,
-      description: 'Customize company branding and colors'
+      helpContent: 'Customize the appearance of your inventory system. Set company colors, logos, and text to match your brand identity across all pages.'
     }
   ];
 
@@ -111,13 +111,6 @@ export default function SettingsPage() {
             );
           })}
         </nav>
-      </div>
-
-      {/* Tab Description */}
-      <div className="card">
-        <p className="text-gray-600">
-          {tabs.find(tab => tab.id === activeTab)?.description}
-        </p>
       </div>
 
       {/* Tab Content */}

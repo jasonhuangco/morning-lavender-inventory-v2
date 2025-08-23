@@ -1119,7 +1119,13 @@ export default function OrderHistoryPage() {
                     <div className="space-y-2">
                       <span className="font-medium text-gray-700">Order Notes:</span>
                       <div className="text-gray-900 text-sm bg-gray-50 p-3 rounded-md border">
-                        {selectedOrder.notes}
+                        {(() => {
+                          // Remove "Order submitted by" line from notes display
+                          const cleanedNotes = selectedOrder.notes
+                            .replace(/Order submitted by .+?(\n|$)/g, '')
+                            .trim();
+                          return cleanedNotes || 'No additional notes';
+                        })()}
                       </div>
                     </div>
                   </div>
